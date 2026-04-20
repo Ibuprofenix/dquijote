@@ -1,307 +1,200 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Don Quijote: El Desenlace</title>
     <style>
-        body { margin: 0; background: #d2b48c; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Georgia', serif; }
-        canvas { background: #fdf5e6; border: 8px double #3e2723; box-shadow: 0 0 50px rgba(0,0,0,0.6); cursor: pointer; }
+        body {
+            margin: 0;
+            background: #d2b48c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+        canvas {
+            background: #fdf5e6;
+            border: 8px double #3e2723;
+            box-shadow: 0 0 50px rgba(0,0,0,0.6);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
+
+<canvas id="gameCanvas"></canvas>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 800; canvas.height = 600;
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 600;
 
-    // --- SISTEMA DE SONIDO (Web Audio API) ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(freq, type, duration, vol = 0.1) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + duration);
-    }
+/* ---------- SONIDO ---------- */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(freq, type, duration, vol = 0.1) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
 
-    const STATE_MENU = 0, STATE_PLAYING = 1, STATE_GAMEOVER = 2, STATE_VICTORY = 3, STATE_THE_END = 4;
-    let currentState = STATE_MENU;
-    let level = 1, score = 0, lives = 3, enemiesDefeated = 0;
-    
-    const player = { x: 400, y: 530, speed: 7, shake: 0, powerUp: 0 };
-    const spears = [], projectiles = [], mills = [], particles = [], heartsOnGround = [], items = [];
-    
-    let sancho = { x: -100, y: 540, active: false, state: 'entering', timer: 0, sanchoUsed: false };
-    let enemyDirection = 1, enemySpeed = 1.1, bladeRotation = 0, globalCooldown = 0;
+/* ---------- ESTADOS ---------- */
+const STATE_MENU = 0, STATE_PLAYING = 1, STATE_GAMEOVER = 2, STATE_VICTORY = 3, STATE_THE_END = 4;
+let currentState = STATE_MENU;
 
-    const keys = {};
-    window.onkeydown = (e) => {
-        keys[e.code] = true;
-        if (e.code === 'Space' && currentState === STATE_PLAYING) {
-            const isPowered = player.powerUp > 0;
-            spears.push({ 
-                x: player.x, y: player.y - 25, 
-                w: isPowered ? 8 : 4, h: isPowered ? 40 : 25, 
-                piercing: isPowered, color: isPowered ? "#ff6d00" : "#b71c1c" 
-            });
-            playSound(isPowered ? 150 : 300, 'triangle', 0.2);
-        }
-    };
-    window.onkeyup = (e) => keys[e.code] = false;
+/* ---------- VARIABLES ---------- */
+let level = 1, score = 0, lives = 3, enemiesDefeated = 0;
+const player = { x: 400, y: 530, speed: 7, shake: 0, powerUp: 0 };
+const spears = [], projectiles = [], mills = [], particles = [], heartsOnGround = [], items = [];
+let sancho = { x: -100, y: 540, active: false, state: 'entering', timer: 0, sanchoUsed: false };
+let enemyDirection = 1, enemySpeed = 1.1, bladeRotation = 0, globalCooldown = 0;
 
-    canvas.onclick = () => { 
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        if (currentState === STATE_THE_END) startNewGame(1);
-        else if (currentState !== STATE_PLAYING) startNewGame(currentState === STATE_VICTORY ? level + 1 : 1); 
-    };
-
-    function startNewGame(targetLevel) {
-        level = targetLevel; if (level === 1) score = 0;
-        lives = 3; enemiesDefeated = 0; enemySpeed = 1.1 + (level * 0.4);
-        spears.length = 0; projectiles.length = 0; particles.length = 0; 
-        heartsOnGround.length = 0; items.length = 0;
-        player.powerUp = 0; player.x = 400; 
-        sancho.active = false; sancho.sanchoUsed = false; sancho.x = -100;
-        initEnemies(); currentState = STATE_PLAYING;
-        playSound(440, 'sine', 0.5);
-    }
-
-    function initEnemies() {
-        mills.length = 0;
-        let rows = level === 1 ? 3 : 2;
-        let cols = 8;
-        if (level === 3) {
-            mills.push({ x: 400, y: 150, alive: true, hp: 15, boss: true });
-            rows = 1;
-        }
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                mills.push({ x: c * 90 + 80, y: r * 90 + (level === 3 ? 300 : 70), alive: true, hp: level === 1 ? 1 : 2 });
-            }
-        }
-    }
-
-    function createDebris(x, y, color, count) {
-        for(let k=0; k<count; k++) {
-            particles.push({
-                x: x, y: y, 
-                vx: Math.random()*8-4, vy: Math.random()*-10 - 2, 
-                life: 60 + Math.random()*30, 
-                color: color,
-                size: Math.random()*6 + 2,
-                rot: Math.random()*Math.PI*2,
-                vRot: Math.random()*0.2-0.1
-            });
-        }
-    }
-
-    function drawQuijote(x, y) {
-        ctx.save(); ctx.translate(x, y);
-        if (player.shake > 0) ctx.translate(Math.random()*4-2, Math.random()*4-2);
-        ctx.strokeStyle = "#3e2723"; ctx.lineWidth = 2; ctx.fillStyle = "#eee";
-        ctx.beginPath(); ctx.ellipse(0, 10, 12, 18, Math.PI/2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(-18, -10); ctx.lineTo(-12, -12); ctx.stroke();
-        ctx.fillStyle = "#5d4037"; ctx.fillRect(-2, -15, 4, 15);
-        ctx.fillStyle = player.powerUp > 0 ? "#ffd700" : "#999";
-        ctx.beginPath(); ctx.arc(0, -22, 7, 0, Math.PI, true); ctx.fill(); ctx.stroke();
-        ctx.restore();
-    }
-
-    function drawSancho(x, y) {
-        ctx.save(); ctx.translate(x, y);
-        ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(0, 10, 10, 15, Math.PI/2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(-5, 5); ctx.lineTo(-12, -5); ctx.lineTo(-15, -2); ctx.stroke();
-        ctx.fillStyle = "#5d4037"; ctx.beginPath(); ctx.ellipse(0, -2, 10, 12, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#2e7d32"; ctx.fillRect(-8, -12, 16, 4);
-        ctx.restore();
-    }
-
-    function update() {
-        if (currentState !== STATE_PLAYING) return;
-        if (keys['ArrowLeft'] && player.x > 50) player.x -= player.speed;
-        if (keys['ArrowRight'] && player.x < 750) player.x += player.speed;
-        if (player.powerUp > 0) player.powerUp--;
-
-        if (level >= 2 && !sancho.sanchoUsed && !sancho.active && Math.random() < 0.005) { 
-            sancho.active = true; sancho.state = 'entering'; sancho.x = -100; sancho.sanchoUsed = true; 
-        }
-
-        if (sancho.active) {
-            if (sancho.state === 'entering') { sancho.x += 2; if (sancho.x >= 80) { sancho.state = 'throwing'; sancho.timer = 50; } }
-            else if (sancho.state === 'throwing') {
-                sancho.timer--;
-                if (sancho.timer === 25) {
-                    heartsOnGround.push({ x: sancho.x + 20, y: sancho.y - 10, vy: -5, vx: 3, landed: false });
-                    playSound(600, 'sine', 0.2);
-                }
-                if (sancho.timer <= 0) sancho.state = 'leaving';
-            } else if (sancho.state === 'leaving') { sancho.x -= 2; if (sancho.x < -120) sancho.active = false; }
-        }
-
-        items.forEach((it, i) => { 
-            it.y += 2; 
-            if (Math.hypot(it.x - player.x, it.y - player.y) < 30) { 
-                player.powerUp = 500; items.splice(i, 1); 
-                playSound(800, 'square', 0.3);
-            } 
+/* ---------- CONTROLES ---------- */
+const keys = {};
+window.onkeydown = (e) => {
+    keys[e.code] = true;
+    if (e.code === 'Space' && currentState === STATE_PLAYING) {
+        const isPowered = player.powerUp > 0;
+        spears.push({
+            x: player.x,
+            y: player.y - 25,
+            w: isPowered ? 8 : 4,
+            h: isPowered ? 40 : 25,
+            piercing: isPowered,
+            color: isPowered ? "#ff6d00" : "#b71c1c"
         });
-        
-        for (let i = heartsOnGround.length - 1; i >= 0; i--) {
-            let h = heartsOnGround[i];
-            if (!h.landed) { h.x += h.vx; h.y += h.vy; h.vy += 0.2; if (h.y >= 540) { h.y = 540; h.landed = true; h.vx = 0; h.vy = 0; } }
-            if (Math.hypot(h.x - player.x, h.y - player.y) < 30) { 
-                lives = Math.min(lives + 1, 5); heartsOnGround.splice(i, 1); 
-                playSound(1000, 'sine', 0.2);
-                continue; 
-            }
-        }
+        playSound(isPowered ? 150 : 300, 'triangle', 0.2);
+    }
+};
+window.onkeyup = (e) => keys[e.code] = false;
 
-        for (let i = spears.length - 1; i >= 0; i--) { spears[i].y -= 12; if (spears[i].y < -50) spears.splice(i, 1); }
+canvas.onclick = () => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (currentState === STATE_THE_END) startNewGame(1);
+    else if (currentState !== STATE_PLAYING) startNewGame(currentState === STATE_VICTORY ? level + 1 : 1);
+};
 
-        let activeEnemies = 0; let edgeHit = false;
-        mills.forEach(m => {
-            if (!m.alive) return; 
-            activeEnemies++;
-            if (!m.boss) {
-                m.x += enemySpeed * enemyDirection;
-                if (m.x > 760 || m.x < 40) edgeHit = true;
-                if (m.y + 30 >= player.y - 10) { currentState = STATE_GAMEOVER; playSound(100, 'sawtooth', 1); }
-            }
+/* ---------- INICIO DE PARTIDA ---------- */
+function startNewGame(targetLevel) {
+    level = targetLevel;
+    if (level === 1) score = 0;
+    lives = 3;
+    enemiesDefeated = 0;
+    enemySpeed = 1.1 + level * 0.4;
+    spears.length = projectiles.length = particles.length = heartsOnGround.length = items.length = 0;
+    player.powerUp = 0;
+    player.x = 400;
+    sancho.active = false;
+    sancho.sanchoUsed = false;
+    sancho.x = -100;
+    initEnemies();
+    currentState = STATE_PLAYING;
+    playSound(440, 'sine', 0.5);
+}
 
-            spears.forEach((s, si) => {
-                let hitRange = m.boss ? 60 : 25;
-                if (s.x > m.x - hitRange && s.x < m.x + hitRange && s.y > m.y - hitRange && s.y < m.y + hitRange) {
-                    m.hp--; if (!s.piercing) spears.splice(si, 1);
-                    playSound(150, 'sawtooth', 0.1);
-                    if (m.hp <= 0) { 
-                        m.alive = false; score += (m.boss ? 1000 : 150); enemiesDefeated++;
-                        // ¡EFECTO DE HACERSE TRIZAS!
-                        createDebris(m.x, m.y, level==1?"#5d4037":"#3e2723", m.boss ? 40 : 15);
-                        playSound(80, 'sawtooth', 0.4, 0.2);
-                        if (level >= 2 && enemiesDefeated === 3) items.push({x: m.x, y: m.y, type: 'fire'});
-                    }
-                }
-            });
-        });
+/* ---------- ENEMIGOS ---------- */
+function initEnemies() {
+    mills.length = 0;
+    let rows = level === 1 ? 3 : 2;
+    let cols = 8;
 
-        if (edgeHit) { enemyDirection *= -1; mills.forEach(m => { if(m.alive && !m.boss) m.y += 25; }); }
-
-        if (globalCooldown > 0) globalCooldown--;
-        mills.forEach(m => {
-            if (m.alive && globalCooldown <= 0 && Math.random() < (m.boss ? 0.05 : 0.01)) {
-                projectiles.push({ x: m.x, y: m.y + 20, type: level === 1 ? 'wind' : 'rock' });
-                globalCooldown = level === 1 ? 40 : 60;
-                playSound(200, 'sine', 0.1);
-            }
-        });
-
-        for (let i = projectiles.length - 1; i >= 0; i--) {
-            let p = projectiles[i]; p.y += (p.type === 'wind' ? 3.5 : 2.5); 
-            if (Math.hypot(p.x - player.x, p.y - player.y) < 25) { 
-                lives--; player.shake = 10; projectiles.splice(i, 1); 
-                playSound(100, 'square', 0.3);
-                if (lives <= 0) currentState = STATE_GAMEOVER; 
-            }
-            else if (p.y > 600) projectiles.splice(i, 1);
-        }
-
-        particles.forEach((p, i) => { 
-            p.x += p.vx; p.y += p.vy; p.vy += 0.2; // Gravedad para las trizas
-            p.rot += p.vRot; p.life--; 
-            if(p.life<=0) particles.splice(i,1); 
-        });
-        bladeRotation += 0.08;
-
-        if (activeEnemies === 0 && currentState === STATE_PLAYING) {
-            currentState = (level === 3) ? STATE_THE_END : STATE_VICTORY;
-            playSound(523, 'sine', 0.8);
-        }
-        if (player.shake > 0) player.shake--;
+    if (level === 3) {
+        mills.push({ x: 400, y: 150, alive: true, hp: 15, boss: true });
+        rows = 1;
     }
 
-    function draw() {
-        ctx.clearRect(0, 0, 800, 600);
-        if (currentState === STATE_MENU) {
-            ctx.fillStyle = "#3e2723"; ctx.textAlign = "center";
-            ctx.font = "bold 50px Georgia"; ctx.fillText("DON QUIJOTE", 400, 220);
-            ctx.font = "italic 25px Georgia"; ctx.fillText("Capítulo I: Los Molinos", 400, 260);
-            ctx.fillStyle = "#3e2723"; ctx.fillRect(300, 350, 200, 50);
-            ctx.fillStyle = "#fdf5e6"; ctx.font = "bold 20px Georgia"; ctx.fillText("CABALGAR", 400, 382);
-        } else {
-            if (sancho.active) drawSancho(sancho.x, sancho.y);
-            heartsOnGround.forEach(h => { ctx.fillStyle = "red"; ctx.font = "bold 25px Georgia"; ctx.textAlign = "center"; ctx.fillText("♥", h.x, h.y); });
-            items.forEach(it => { ctx.fillStyle = "#ffab00"; ctx.beginPath(); ctx.arc(it.x, it.y, 10, 0, 7); ctx.fill(); ctx.fillStyle="#3e2723"; ctx.fillText("PODER", it.x, it.y+25); });
-            
-            drawQuijote(player.x, player.y);
-            spears.forEach(s => { ctx.fillStyle = s.color; ctx.fillRect(s.x-s.w/2, s.y-s.h, s.w, s.h); });
-
-            mills.forEach(m => {
-                if (!m.alive) return;
-                ctx.save(); ctx.translate(m.x, m.y); 
-                if (m.boss) ctx.scale(2.5, 2.5);
-                ctx.fillStyle = level === 1 ? "white" : (m.boss ? "#3e2723" : "#8d6e63"); 
-                ctx.strokeStyle = "#3e2723";
-                
-                if (level === 1) {
-                    ctx.beginPath(); ctx.moveTo(-15, 20); ctx.lineTo(-10, -15); ctx.lineTo(10, -15); ctx.lineTo(15, 20); ctx.closePath(); ctx.fill(); ctx.stroke();
-                    ctx.rotate(bladeRotation); for (let i=0; i<4; i++) { ctx.rotate(Math.PI/2); ctx.strokeRect(-5,10,10,15); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,30); ctx.stroke(); }
-                } else {
-                    ctx.fillRect(-20, -10, 40, 45); ctx.fillStyle = m.boss ? "#000" : "#5d4037"; ctx.beginPath(); ctx.arc(0,-20,15,0,7); ctx.fill(); ctx.stroke();
-                    ctx.rotate(bladeRotation); ctx.fillStyle = "#a1887f";
-                    for (let i=0; i<2; i++) { ctx.rotate(Math.PI); ctx.fillRect(-8, 5, 16, 45); ctx.strokeRect(-8, 5, 16, 45); }
-                }
-                ctx.restore();
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            mills.push({
+                x: c * 90 + 80,
+                y: r * 90 + (level === 3 ? 300 : 70),
+                alive: true,
+                hp: level === 1 ? 1 : 2
             });
-
-            projectiles.forEach(p => {
-                ctx.fillStyle = p.type === 'rock' ? "#5d4037" : "rgba(100,100,100,0.5)";
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.type === 'rock' ? 12 : 8, 0, 7); ctx.fill();
-            });
-
-            // Dibujar las trizas (partículas con rotación)
-            particles.forEach(p => { 
-                ctx.save();
-                ctx.translate(p.x, p.y);
-                ctx.rotate(p.rot);
-                ctx.fillStyle = p.color; 
-                ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); 
-                ctx.restore();
-            });
-
-            ctx.fillStyle = "#3e2723"; ctx.font = "bold 18px Georgia"; ctx.textAlign = "left";
-            ctx.fillText("Capítulo " + level + " | Gloria: " + score, 20, 40); 
-            ctx.fillStyle = "red"; ctx.fillText("Honor: " + "♥ ".repeat(lives), 20, 65);
-            if(player.powerUp > 0) { ctx.fillStyle = "#ff6d00"; ctx.fillText("LANZA DE FUEGO", 20, 90); }
-
-            if (currentState === STATE_GAMEOVER) {
-                ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0,0,800,600);
-                ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "30px Georgia";
-                ctx.fillText("GESTA INTERRUMPIDA", 400, 280); ctx.font = "18px Georgia"; ctx.fillText("CLIC PARA REINTENTAR", 400, 330);
-            }
-            if (currentState === STATE_VICTORY) {
-                ctx.fillStyle = "rgba(253, 245, 230, 0.95)"; ctx.fillRect(0,0,800,600);
-                ctx.fillStyle = "#3e2723"; ctx.textAlign = "center"; ctx.font = "35px Georgia";
-                let msg = level === 1 ? "¡MOLINOS VENCIDOS!" : "¡GIGANTES DERROTADOS!";
-                ctx.fillText(msg, 400, 250);
-                ctx.font = "20px Georgia"; ctx.fillText("CLIC PARA EL SIGUIENTE CAPÍTULO", 400, 310);
-            }
-            if (currentState === STATE_THE_END) {
-                ctx.fillStyle = "rgba(253, 245, 230, 0.98)"; ctx.fillRect(0,0,800,600);
-                ctx.fillStyle = "#3e2723"; ctx.textAlign = "center"; ctx.font = "bold 45px Georgia";
-                ctx.fillText("¡DULCINEA ESTÁ A SALVO!", 400, 250);
-                ctx.font = "italic 22px Georgia"; ctx.fillText("Habéis derrotado al encantador Frestón.", 400, 300);
-                ctx.font = "20px Georgia"; ctx.fillText("FIN DE LA GESTA (Clic para volver al inicio)", 400, 400);
-            }
         }
-        requestAnimationFrame(() => { update(); draw(); });
     }
-    draw();
+}
+
+/* ---------- DIBUJOS ---------- */
+function drawQuijote(x, y) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (player.shake > 0) ctx.translate(Math.random()*4-2, Math.random()*4-2);
+    ctx.strokeStyle = "#3e2723";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = "#eee";
+    ctx.beginPath();
+    ctx.ellipse(0, 10, 12, 18, Math.PI/2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#5d4037";
+    ctx.fillRect(-2, -15, 4, 15);
+    ctx.fillStyle = player.powerUp > 0 ? "#ffd700" : "#999";
+    ctx.beginPath();
+    ctx.arc(0, -22, 7, 0, Math.PI, true);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+}
+
+/* ---------- UPDATE + DRAW ---------- */
+function update() {
+    if (currentState !== STATE_PLAYING) return;
+
+    if (keys['ArrowLeft'] && player.x > 50) player.x -= player.speed;
+    if (keys['ArrowRight'] && player.x < 750) player.x += player.speed;
+
+    bladeRotation += 0.08;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, 800, 600);
+
+    /* -------- MENÚ -------- */
+    if (currentState === STATE_MENU) {
+        ctx.fillStyle = "#3e2723";
+        ctx.textAlign = "center";
+
+        ctx.font = "bold 50px Georgia";
+        ctx.fillText("DON QUIJOTE", 400, 200);
+
+        ctx.font = "italic 25px Georgia";
+        ctx.fillText("Capítulo I: Los Molinos", 400, 240);
+
+        ctx.font = "20px Georgia";
+        ctx.fillText("CONTROLES", 400, 300);
+
+        ctx.font = "18px Georgia";
+        ctx.fillText("⬅️ ➡️  Flechas izquierda / derecha para moverse", 400, 335);
+        ctx.fillText("␣  Barra espaciadora para lanzar la lanza", 400, 365);
+
+        ctx.fillStyle = "#3e2723";
+        ctx.fillRect(300, 420, 200, 50);
+
+        ctx.fillStyle = "#fdf5e6";
+        ctx.font = "bold 20px Georgia";
+        ctx.fillText("CABALGAR", 400, 452);
+    }
+
+    if (currentState === STATE_PLAYING) {
+        drawQuijote(player.x, player.y);
+    }
+
+    requestAnimationFrame(draw);
+}
+
+draw();
 </script>
 </body>
 </html>
