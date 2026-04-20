@@ -16,64 +16,71 @@
     const ctx = canvas.getContext('2d');
     canvas.width = 800; canvas.height = 600;
 
+    // --- SISTEMA DE AUDIO ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(f, t, d, v=0.1) {
+        const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+        o.type=t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+        g.gain.setValueAtTime(v, audioCtx.currentTime);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime+d);
+    }
+
+    // SONIDO DE CRASH (Explosión orgánica)
+    function playCrash() {
+        const bufferSize = audioCtx.sampleRate * 0.5;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.4);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        noise.start();
+    }
+
     // --- BANCO DE PREGUNTAS ---
     const quizBank = [
-        { q: "¿En qué ciudad se cree que nació Cervantes?", o: ["a) Madrid", "b) Sevilla", "c) Alcalá de Henares", "d) Toledo"], c: "KeyC" },
-        { q: "¿Por qué se le conoce como 'el Manco de Lepanto'?", o: ["a) Nació así", "b) Perdió el uso de una mano en batalla", "c) Accidente en prisión", "d) Apodo falso"], c: "KeyB" },
-        { q: "¿En qué batalla participó Cervantes como soldado?", o: ["a) Trafalgar", "b) Lepanto", "c) Bailén", "d) Navas de Tolosa"], c: "KeyB" },
-        { q: "¿Años prisionero en Argel aproximadamente?", o: ["a) 1 año", "b) 3 años", "c) 5 años", "d) 10 años"], c: "KeyC" },
-        { q: "¿Cuál es la obra más famosa de Cervantes?", o: ["a) La Celestina", "b) Fuenteovejuna", "c) Don Quijote", "d) El Lazarillo"], c: "KeyC" },
-        { q: "¿En qué siglo vivió Miguel de Cervantes?", o: ["a) S. XIV", "b) S. XV", "c) S. XVI-XVII", "d) S. XVIII"], c: "KeyC" },
-        { q: "¿En qué año se publicó la 1ª parte del Quijote?", o: ["a) 1492", "b) 1550", "c) 1605", "d) 1700"], c: "KeyC" },
-        { q: "Además de escritor, Cervantes fue también...", o: ["a) Médico", "b) Soldado", "c) Pintor", "d) Rey"], c: "KeyB" },
-        { q: "¿Nombre de Don Quijote antes de ser caballero?", o: ["a) Alonso Quijano", "b) Sancho Panza", "c) Rodrigo Díaz", "d) Diego Mendoza"], c: "KeyA" },
-        { q: "¿Cómo se llama el escudero de Don Quijote?", o: ["a) Dulcinea", "b) Rocinante", "c) Sancho Panza", "d) Bartolomé"], c: "KeyC" },
-        { q: "¿Qué animal monta Don Quijote?", o: ["a) Un burro", "b) Un caballo", "c) Un mulo", "d) Un camello"], c: "KeyB" },
-        { q: "¿Cómo se llama el caballo de Don Quijote?", o: ["a) Pegaso", "b) Babieca", "c) Rocinante", "d) Clavileño"], c: "KeyC" },
-        { q: "¿Quién es Dulcinea del Toboso?", o: ["a) Princesa real", "b) Mujer idealizada", "c) Madre de Sancho", "d) Reina"], c: "KeyB" },
+        { q: "¿Cómo se llamaba Don Quijote antes de ser caballero?", o: ["a) Alonso Quijano", "b) Sancho Panza", "c) Rodrigo Díaz", "d) Diego Mendoza"], c: "KeyA" },
         { q: "¿Qué cree el Quijote que son los molinos?", o: ["a) Castillos", "b) Dragones", "c) Gigantes", "d) Brujos"], c: "KeyC" },
-        { q: "¿Dónde es armado caballero Don Quijote?", o: ["a) Castillo real", "b) En una venta", "c) En una iglesia", "d) En su casa"], c: "KeyB" },
-        { q: "¿Qué confunde con un yelmo famoso?", o: ["a) Sombrero", "b) Bacía de barbero", "c) Una olla", "d) Casco romano"], c: "KeyB" },
-        { q: "¿Qué tipo de libros le vuelven loco?", o: ["a) Viajes", "b) Poesía", "c) Caballerías", "d) Científicos"], c: "KeyC" },
-        { q: "¿Cómo es Sancho Panza principalmente?", o: ["a) Fantasioso", "b) Realista y práctico", "c) Violento", "d) Triste"], c: "KeyB" }
+        { q: "¿En qué batalla perdió Cervantes el uso de su mano?", o: ["a) Trafalgar", "b) Lepanto", "c) Bailén", "d) Navas de Tolosa"], c: "KeyB" },
+        { q: "¿Qué objeto confunde con un yelmo?", o: ["a) Sombrero", "b) Bacía de barbero", "c) Una olla", "d) Casco romano"], c: "KeyB" },
+        { q: "¿Cómo se llama el caballo de Don Quijote?", o: ["a) Pegaso", "b) Babieca", "c) Rocinante", "d) Clavileño"], c: "KeyC" }
     ];
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(f, t, d, v=0.1) { const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=t; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); }
 
     const STATE_MENU = 0, STATE_PLAYING = 1, STATE_GAMEOVER = 2, STATE_VICTORY = 3, STATE_THE_END = 4, STATE_QUIZ = 5;
     let currentState = STATE_MENU;
-    let level = 1, score = 0, lives = 3, enemiesDefeated = 0;
-    let usedFierabras = false, quizSequence = [], quizIndex = 0;
+    let level = 1, score = 0, lives = 3, usedFierabras = false, quizSequence = [], quizIndex = 0;
     
     const player = { x: 400, y: 530, speed: 7, shake: 0, powerUp: 0 };
     const spears = [], projectiles = [], mills = [], particles = [], heartsOnGround = [], items = [];
-    let sancho = { x: -100, y: 540, active: false, state: 'entering', timer: 0, sanchoUsed: false };
+    let sancho = { x: -100, y: 540, active: false, state: 'entering', sanchoUsed: false };
     let enemyDirection = 1, enemySpeed = 1.1, bladeRotation = 0, globalCooldown = 0;
 
-    const keys = {};
     window.onkeydown = (e) => {
         if (currentState === STATE_QUIZ) {
             if (e.code === quizSequence[quizIndex].c) {
-                quizIndex++;
-                playSound(600, 'sine', 0.1);
-                if (quizIndex >= 3) { usedFierabras = true; startNewGame(3); }
-            } else if (["KeyA", "KeyB", "KeyC", "KeyD"].includes(e.code)) {
-                currentState = STATE_GAMEOVER;
-                playSound(100, 'sawtooth', 0.5);
-            }
+                quizIndex++; if (quizIndex >= 3) { usedFierabras = true; startNewGame(3); }
+            } else if (["KeyA", "KeyB", "KeyC", "KeyD"].includes(e.code)) { currentState = STATE_GAMEOVER; }
             return;
         }
-        keys[e.code] = true;
         if (e.code === 'Space' && currentState === STATE_PLAYING) {
             const isP = player.powerUp > 0;
             spears.push({ x: player.x, y: player.y - 25, w: isP?8:4, h: isP?40:25, piercing: isP, color: isP?"#ff6d00":"#b71c1c" });
-            playSound(isP?150:300, 'triangle', 0.2);
+            playSound(isP?150:300, 'triangle', 0.1);
         }
+        keys[e.code] = true;
     };
+    const keys = {};
     window.onkeyup = (e) => keys[e.code] = false;
 
-    canvas.onclick = () => { 
+    canvas.onclick = () => {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         if (currentState === STATE_MENU) startNewGame(1);
         else if (currentState === STATE_VICTORY) startNewGame(level + 1);
@@ -82,9 +89,9 @@
 
     function startNewGame(tL) {
         level = tL; if (level === 1) { score = 0; usedFierabras = false; }
-        lives = 3; enemiesDefeated = 0; enemySpeed = 1.1 + (level * 0.4);
+        lives = 3; enemySpeed = 1.1 + (level * 0.4);
         spears.length = 0; projectiles.length = 0; particles.length = 0; heartsOnGround.length = 0; items.length = 0;
-        player.powerUp = 0; player.x = 400; sancho.active = false; sancho.sanchoUsed = false; sancho.x = -100;
+        player.x = 400; sancho.active = false; sancho.sanchoUsed = false;
         initEnemies(); currentState = STATE_PLAYING;
     }
 
@@ -94,96 +101,58 @@
         if (level === 3) { mills.push({ x: 400, y: 150, alive: true, hp: 15, boss: true }); rows = 1; }
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < 8; c++) {
-                mills.push({ x: c * 90 + 80, y: r * 90 + (level === 3 ? 300 : 70), alive: true, hp: level === 1 ? 1 : 2 });
+                mills.push({ x: c * 90 + 80, y: r * 90 + (level === 3 ? 320 : 80), alive: true, hp: level === 1 ? 1 : 2 });
             }
         }
-    }
-
-    function createDebris(x, y, color, count) {
-        for(let k=0; k<count; k++) {
-            particles.push({ x, y, vx: Math.random()*8-4, vy: Math.random()*-10-2, life: 60+Math.random()*30, color, size: Math.random()*6+2, rot: Math.random()*Math.PI*2, vRot: Math.random()*0.2-0.1 });
-        }
-    }
-
-    function drawQuijote(x, y) {
-        ctx.save(); ctx.translate(x, y);
-        if (player.shake > 0) ctx.translate(Math.random()*4-2, Math.random()*4-2);
-        ctx.strokeStyle = "#3e2723"; ctx.lineWidth = 2; ctx.fillStyle = "#eee";
-        ctx.beginPath(); ctx.ellipse(0, 10, 12, 18, Math.PI/2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(-18, -10); ctx.lineTo(-12, -12); ctx.stroke();
-        ctx.fillStyle = "#5d4037"; ctx.fillRect(-2, -15, 4, 15);
-        ctx.fillStyle = player.powerUp > 0 ? "#ffd700" : "#999";
-        ctx.beginPath(); ctx.arc(0, -22, 7, 0, Math.PI, true); ctx.fill(); ctx.stroke();
-        ctx.restore();
-    }
-
-    function drawSancho(x, y) {
-        ctx.save(); ctx.translate(x, y);
-        ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(0, 10, 10, 15, Math.PI/2, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#5d4037"; ctx.beginPath(); ctx.ellipse(0, -2, 10, 12, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#2e7d32"; ctx.fillRect(-8, -12, 16, 4);
-        ctx.restore();
     }
 
     function update() {
         if (currentState !== STATE_PLAYING) return;
         if (keys['ArrowLeft'] && player.x > 50) player.x -= player.speed;
         if (keys['ArrowRight'] && player.x < 750) player.x += player.speed;
-        if (player.powerUp > 0) player.powerUp--;
-
-        if (level >= 2 && !sancho.sanchoUsed && !sancho.active && Math.random() < 0.005) { sancho.active = true; sancho.state = 'entering'; sancho.x = -100; sancho.sanchoUsed = true; }
-        if (sancho.active) {
-            if (sancho.state === 'entering') { sancho.x += 2; if (sancho.x >= 80) { sancho.state = 'throwing'; sancho.timer = 50; } }
-            else if (sancho.state === 'throwing') {
-                sancho.timer--;
-                if (sancho.timer === 25) { heartsOnGround.push({ x: sancho.x + 20, y: sancho.y - 10, vy: -5, vx: 3, landed: false }); }
-                if (sancho.timer <= 0) sancho.state = 'leaving';
-            } else if (sancho.state === 'leaving') { sancho.x -= 2; if (sancho.x < -120) sancho.active = false; }
-        }
-
-        for (let i = heartsOnGround.length - 1; i >= 0; i--) {
-            let h = heartsOnGround[i];
-            if (!h.landed) { h.x += h.vx; h.y += h.vy; h.vy += 0.2; if (h.y >= 540) { h.y = 540; h.landed = true; } }
-            if (Math.hypot(h.x - player.x, h.y - player.y) < 30) { lives = Math.min(lives + 1, 5); heartsOnGround.splice(i, 1); playSound(1000, 'sine', 0.2); }
-        }
 
         let edgeHit = false; let activeEnemies = 0;
         mills.forEach(m => {
             if (!m.alive) return; activeEnemies++;
-            if (!m.boss) { m.x += enemySpeed * enemyDirection; if (m.x > 760 || m.x < 40) edgeHit = true; if (m.y + 30 >= player.y - 10) { lives = 0; checkDeath(); } }
+            if (!m.boss) {
+                m.x += enemySpeed * enemyDirection;
+                if (m.x > 760 || m.x < 40) edgeHit = true;
+                if (m.y + 40 >= player.y) { lives = 0; checkDeath(); }
+            }
             spears.forEach((s, si) => {
-                let hit = m.boss ? 60 : 25;
-                if (s.x > m.x - hit && s.x < m.x + hit && s.y > m.y - hit && s.y < m.y + hit) {
+                let hit = m.boss ? 70 : 30;
+                if (Math.abs(s.x - m.x) < hit && Math.abs(s.y - m.y) < hit) {
                     m.hp--; if (!s.piercing) spears.splice(si, 1);
-                    if (m.hp <= 0) { m.alive = false; score += (m.boss?1000:150); enemiesDefeated++; createDebris(m.x, m.y, "#5d4037", m.boss?40:15); if(level>=2 && enemiesDefeated===3) items.push({x:m.x, y:m.y}); }
+                    if (m.hp <= 0) { 
+                        m.alive = false; score += (m.boss?1000:150); 
+                        playCrash(); // NUEVO SONIDO
+                        for(let k=0; k<20; k++) particles.push({x:m.x, y:m.y, vx:Math.random()*6-3, vy:Math.random()*-8, life:50, color:level===1?"#fff":"#3e2723", size:Math.random()*5+2});
+                    }
                 }
             });
         });
-        if (edgeHit) { enemyDirection *= -1; mills.forEach(m => { if(m.alive && !m.boss) m.y += 25; }); }
+        if (edgeHit) { enemyDirection *= -1; mills.forEach(m => { if(m.alive && !m.boss) m.y += 20; }); }
 
+        // Proyectiles y colisiones
         if (globalCooldown > 0) globalCooldown--;
         mills.forEach(m => {
-            if (m.alive && globalCooldown <= 0 && Math.random() < (m.boss ? 0.05 : 0.01)) {
-                let vx = 0, vy = (level === 1 ? 3.5 : 2.5);
-                if (m.boss) { let angle = Math.atan2(player.y - m.y, player.x - m.x); vx = Math.cos(angle) * 4; vy = Math.sin(angle) * 4; }
-                projectiles.push({ x: m.x, y: m.y + 20, vx, vy, type: level === 1 ? 'wind' : 'rock' });
-                globalCooldown = m.boss ? 40 : 60;
+            if (m.alive && globalCooldown <= 0 && Math.random() < (m.boss?0.06:0.01)) {
+                let vx = 0, vy = 3;
+                if (m.boss) { let a = Math.atan2(player.y - m.y, player.x - m.x); vx = Math.cos(a)*5; vy = Math.sin(a)*5; }
+                projectiles.push({x:m.x, y:m.y, vx, vy}); globalCooldown = m.boss?35:60;
             }
         });
 
         for (let i = projectiles.length - 1; i >= 0; i--) {
-            let p = projectiles[i]; p.y += p.vy; p.x += p.vx;
-            if (Math.hypot(p.x - player.x, p.y - player.y) < 25) { 
-                lives--; player.shake = 10; projectiles.splice(i, 1); playSound(100, 'square', 0.2);
-                checkDeath();
-            } else if (p.y > 600 || p.x < 0 || p.x > 800) projectiles.splice(i, 1);
+            let p = projectiles[i]; p.x += p.vx; p.y += p.vy;
+            if (Math.hypot(p.x - player.x, p.y - player.y) < 25) { lives--; player.shake = 8; projectiles.splice(i, 1); checkDeath(); }
+            else if (p.y > 600) projectiles.splice(i,1);
         }
 
-        items.forEach((it, i) => { it.y += 2; if (Math.hypot(it.x - player.x, it.y - player.y) < 30) { player.powerUp = 500; items.splice(i, 1); } });
-        for (let i = spears.length - 1; i >= 0; i--) { spears[i].y -= 12; if (spears[i].y < -50) spears.splice(i, 1); }
-        particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.rot += p.vRot; p.life--; if(p.life<=0) particles.splice(i,1); });
+        for (let i = spears.length-1; i>=0; i--) { spears[i].y -= 10; if(spears[i].y < 0) spears.splice(i,1); }
+        particles.forEach((p, i) => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.2; p.life--; if(p.life<=0) particles.splice(i,1); });
         bladeRotation += 0.08;
-        if (activeEnemies === 0 && currentState === STATE_PLAYING) currentState = (level === 3) ? STATE_THE_END : STATE_VICTORY;
+        if (activeEnemies === 0) currentState = level===3?STATE_THE_END:STATE_VICTORY;
         if (player.shake > 0) player.shake--;
     }
 
@@ -192,7 +161,7 @@
             if (level === 3 && !usedFierabras) {
                 currentState = STATE_QUIZ; quizIndex = 0;
                 quizSequence = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 3);
-            } else { currentState = STATE_GAMEOVER; }
+            } else currentState = STATE_GAMEOVER;
         }
     }
 
@@ -201,37 +170,48 @@
         if (currentState === STATE_MENU) {
             ctx.fillStyle = "#3e2723"; ctx.textAlign = "center";
             ctx.font = "bold 50px Georgia"; ctx.fillText("DON QUIJOTE", 400, 220);
-            ctx.font = "italic 25px Georgia"; ctx.fillText("Capítulo I: Los Molinos", 400, 260);
-            ctx.fillStyle = "#3e2723"; ctx.fillRect(300, 350, 200, 50);
-            ctx.fillStyle = "#fdf5e6"; ctx.font = "bold 20px Georgia"; ctx.fillText("CABALGAR", 400, 382);
-            ctx.fillStyle = "#3e2723"; ctx.font = "16px Georgia"; ctx.fillText("Flechas: Moverse | Espacio: Lanzar lanzas", 400, 430);
+            ctx.font = "italic 22px Georgia"; ctx.fillText("Capítulo I: La Gesta", 400, 260);
+            ctx.fillRect(300, 350, 200, 50); ctx.fillStyle = "#fdf5e6"; ctx.fillText("JUGAR", 400, 385);
         } else if (currentState === STATE_QUIZ) {
             ctx.fillStyle = "rgba(62, 39, 35, 0.95)"; ctx.fillRect(50, 50, 700, 500);
             ctx.fillStyle = "#fdf5e6"; ctx.textAlign = "center";
-            ctx.font = "bold 26px Georgia"; ctx.fillText("¡EL BÁLSAMO DE FIERABRÁS! (" + (quizIndex + 1) + "/3)", 400, 110);
-            let q = quizSequence[quizIndex]; ctx.font = "20px Georgia"; ctx.fillText(q.q, 400, 180);
-            q.o.forEach((opt, i) => ctx.fillText(opt, 400, 260 + (i * 50)));
-            ctx.font = "italic 16px Georgia"; ctx.fillText("Pulsa A, B, C o D para sanar tus heridas", 400, 510);
+            ctx.font = "bold 24px Georgia"; ctx.fillText("¡EL BÁLSAMO DE FIERABRÁS! ("+(quizIndex+1)+"/3)", 400, 120);
+            let q = quizSequence[quizIndex]; ctx.font = "20px Georgia"; ctx.fillText(q.q, 400, 200);
+            q.o.forEach((opt, i) => ctx.fillText(opt, 400, 280 + (i * 50)));
         } else {
-            if (sancho.active) drawSancho(sancho.x, sancho.y);
-            heartsOnGround.forEach(h => { ctx.fillStyle = "red"; ctx.font = "20px Georgia"; ctx.fillText("♥", h.x, h.y); });
-            items.forEach(it => { ctx.fillStyle = "#ffab00"; ctx.beginPath(); ctx.arc(it.x, it.y, 10, 0, 7); ctx.fill(); });
-            drawQuijote(player.x, player.y);
+            // DIBUJAR QUIJOTE
+            ctx.save(); ctx.translate(player.x, player.y);
+            if(player.shake>0) ctx.translate(Math.random()*4-2, 0);
+            ctx.fillStyle = "#eee"; ctx.beginPath(); ctx.ellipse(0, 10, 12, 18, Math.PI/2, 0, 7); ctx.fill();
+            ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(0, -22, 7, 0, Math.PI, true); ctx.fill();
+            ctx.restore();
+
             spears.forEach(s => { ctx.fillStyle = s.color; ctx.fillRect(s.x-s.w/2, s.y-s.h, s.w, s.h); });
+
+            // DIBUJAR ENEMIGOS (Molinos Nivel 1, GIGANTES Nivel 2 y 3)
             mills.forEach(m => {
                 if (!m.alive) return;
                 ctx.save(); ctx.translate(m.x, m.y); if (m.boss) ctx.scale(2.5, 2.5);
-                ctx.fillStyle = level === 1 ? "white" : (m.boss ? "#3e2723" : "#8d6e63"); ctx.strokeStyle = "#3e2723";
-                ctx.beginPath(); ctx.moveTo(-15, 20); ctx.lineTo(-10, -15); ctx.lineTo(10, -15); ctx.lineTo(15, 20); ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.rotate(bladeRotation); for (let i=0; i<4; i++) { ctx.rotate(Math.PI/2); ctx.strokeRect(-5,10,10,15); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,30); ctx.stroke(); }
+                ctx.strokeStyle = "#3e2723"; ctx.lineWidth = 2;
+                
+                if (level === 1) { // MOLINOS ORIGINALES
+                    ctx.fillStyle = "white"; ctx.beginPath(); ctx.moveTo(-15, 20); ctx.lineTo(-10, -15); ctx.lineTo(10, -15); ctx.lineTo(15, 20); ctx.closePath(); ctx.fill(); ctx.stroke();
+                    ctx.rotate(bladeRotation); for (let i=0; i<4; i++) { ctx.rotate(Math.PI/2); ctx.strokeRect(-5,10,10,15); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,30); ctx.stroke(); }
+                } else { // GIGANTES ORIGINALES
+                    ctx.fillStyle = "#3e2723"; ctx.fillRect(-15, -10, 30, 45); // Cuerpo
+                    ctx.fillStyle = "#5d4037"; ctx.beginPath(); ctx.arc(0, -20, 15, 0, 7); ctx.fill(); ctx.stroke(); // Cabeza
+                    ctx.save(); ctx.rotate(Math.sin(bladeRotation)); // Brazos moviéndose
+                    ctx.fillStyle = "#3e2723"; ctx.fillRect(-40, -5, 40, 10); ctx.fillRect(0, -5, 40, 10); ctx.restore();
+                }
                 ctx.restore();
             });
-            projectiles.forEach(p => { ctx.fillStyle = p.type==='rock'?"#5d4037":"rgba(100,100,100,0.5)"; ctx.beginPath(); ctx.arc(p.x, p.y, p.type==='rock'?12:8, 0, 7); ctx.fill(); });
-            particles.forEach(p => { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); ctx.restore(); });
+
+            projectiles.forEach(p => { ctx.fillStyle = level===1?"#aaa":"#5d4037"; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 7); ctx.fill(); });
+            particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); });
+            
             ctx.fillStyle = "#3e2723"; ctx.font = "bold 18px Georgia"; ctx.textAlign = "left";
             ctx.fillText("Gloria: " + score + " | Honor: " + "♥".repeat(lives), 20, 40);
-            if (currentState === STATE_GAMEOVER) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,800,600); ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText("GESTA INTERRUMPIDA - CLIC PARA MENÚ", 400, 300); }
-            if (currentState === STATE_THE_END) { ctx.fillStyle = "rgba(253, 245, 230, 0.98)"; ctx.fillRect(0,0,800,600); ctx.fillStyle="#3e2723"; ctx.textAlign="center"; ctx.font="bold 30px Georgia"; ctx.fillText("¡DULCINEA ESTÁ A SALVO!", 400, 300); }
+            if (currentState === STATE_GAMEOVER) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,800,600); ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText("GESTA INTERRUMPIDA", 400, 300); }
         }
         requestAnimationFrame(draw);
     }
