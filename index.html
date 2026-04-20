@@ -24,7 +24,7 @@
     let usedFierabras = false, quizSequence = [], quizIndex = 0;
 
     const player = { x: 400, y: 530, speed: 7, powerUp: 0 };
-    const spears = [], projectiles = [], mills = [], heartsOnGround = [], items = [];
+    const spears = [], projectiles = [], mills = [], heartsOnGround = [], items = [], particles = []; // Añadidas partículas
     let sancho = { x: -120, y: 540, active: false, state: 'entering', timer: 0, sanchoUsed: false };
     let enemyDirection = 1, enemySpeed = 1.1, bladeRotation = 0, globalCooldown = 0;
 
@@ -78,10 +78,53 @@
         n.connect(f); f.connect(g); g.connect(audioCtx.destination); n.start();
     }
 
+    // --- 5. FUNCIONES DE DIBUJO ---
+
+    function drawQuijote(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.fillStyle = "#eee";
+        ctx.beginPath(); ctx.ellipse(0, 10, 14, 20, Math.PI/2, 0, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(0, -22, 8, 0, Math.PI, true); ctx.fill(); ctx.stroke();
+        ctx.restore();
+    }
+
+    // RE-DISEÑO DE SANCHO (Más reconocible)
+    function drawSancho(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        // Cuerpo (Orondo y con chaleco)
+        ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(0, 10, 16, 22, Math.PI/2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#5d4037"; ctx.fillRect(-10, -5, 20, 25); // Chaleco
+        // Cabeza
+        ctx.fillStyle = "#d2b48c"; ctx.beginPath(); ctx.arc(0, -15, 12, 0, Math.PI*2); ctx.fill();
+        // Gorra verde característica
+        ctx.fillStyle = "#2e7d32"; 
+        ctx.beginPath(); ctx.arc(0, -20, 14, Math.PI, 0); ctx.fill(); // Parte superior
+        ctx.fillRect(-16, -21, 32, 4); // Visera/borde
+        ctx.restore();
+    }
+
+    // SISTEMA DE PARTÍCULAS (Hacerse trizas)
+    function createDebris(x, y, color, count) {
+        for(let k=0; k<count; k++) {
+            particles.push({
+                x: x, y: y,
+                vx: Math.random()*8 - 4,
+                vy: Math.random()*-10 - 2,
+                life: 60 + Math.random()*30,
+                color: color,
+                size: Math.random()*6 + 2,
+                rot: Math.random()*Math.PI*2,
+                vRot: Math.random()*0.2 - 0.1
+            });
+        }
+    }
+
+    // --- 6. LÓGICA DE JUEGO ---
+
     function startLevel(tL) {
         level = tL;
         lives = 3; enemiesDefeated = 0; enemySpeed = 1.1 + (level * 0.5);
-        spears.length = 0; projectiles.length = 0; items.length = 0; heartsOnGround.length = 0;
+        spears.length = 0; projectiles.length = 0; items.length = 0; heartsOnGround.length = 0; particles.length = 0;
         player.x = 400; player.powerUp = 0;
         sancho.active = false; sancho.sanchoUsed = false; 
         initEnemies();
@@ -100,14 +143,10 @@
     }
 
     function checkDeath() {
-        lives = 0; // Se pierden todas las vidas por colisión directa o invasión
+        lives = 0;
         if (level === 3 && !usedFierabras) { 
-            currentState = STATE_QUIZ; 
-            quizIndex = 0; 
-            quizSequence = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 3); 
-        } else { 
-            currentState = STATE_GAMEOVER; 
-        }
+            currentState = STATE_QUIZ; quizIndex = 0; quizSequence = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 3); 
+        } else { currentState = STATE_GAMEOVER; }
     }
 
     function update() {
@@ -133,13 +172,8 @@
         let edge = false; let activeCount = 0;
         mills.forEach(m => {
             if (!m.alive) return; activeCount++;
-            
-            // Movimiento lateral
             if (!m.boss) { 
-                m.x += enemySpeed * enemyDirection; 
-                if (m.x > 760 || m.x < 40) edge = true; 
-                
-                // CONDICIÓN ESENCIAL: Si el enemigo llega a la altura del Quijote
+                m.x += enemySpeed * enemyDirection; if (m.x > 760 || m.x < 40) edge = true; 
                 if (m.y + 30 >= player.y - 10) { checkDeath(); }
             }
             
@@ -147,7 +181,12 @@
                 let hit = m.boss ? 70 : 30;
                 if (Math.abs(s.x - m.x) < hit && Math.abs(s.y - m.y) < hit) {
                     m.hp--; if (!s.piercing) spears.splice(si, 1);
-                    if (m.hp <= 0) { m.alive = false; score += 150; enemiesDefeated++; playCrash(); if (level >= 2 && enemiesDefeated === 3) items.push({ x: m.x, y: m.y }); }
+                    if (m.hp <= 0) { 
+                        m.alive = false; score += 150; enemiesDefeated++; playCrash(); 
+                        // EFECTO HACERSE TRIZAS
+                        createDebris(m.x, m.y, "#5d4037", m.boss ? 40 : 15);
+                        if (level >= 2 && enemiesDefeated === 3) items.push({ x: m.x, y: m.y }); 
+                    }
                 }
             });
         });
@@ -175,6 +214,14 @@
         }
 
         spears.forEach((s, i) => { s.y -= 10; if (s.y < -50) spears.splice(i, 1); });
+        
+        // Actualizar Partículas
+        particles.forEach((p, i) => { 
+            p.x += p.vx; p.y += p.vy; p.vy += 0.2; // Gravedad
+            p.rot += p.vRot; p.life--; 
+            if(p.life<=0) particles.splice(i,1); 
+        });
+
         bladeRotation += 0.08;
         if (activeCount === 0) currentState = (level === 3) ? STATE_THE_END : STATE_VICTORY;
     }
@@ -194,19 +241,18 @@
             ctx.fillStyle = "#3e2723"; ctx.textAlign = "center"; ctx.font = "bold 40px Georgia"; ctx.fillText("¡GESTA COMPLETADA!", 400, 300);
             ctx.font = "20px Georgia"; ctx.fillText("Haz clic para el siguiente capítulo", 400, 350);
         } else {
-            if (sancho.active) { ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(sancho.x, sancho.y, 15, 20, 0, 0, 7); ctx.fill(); }
+            // Elementos de fondo y ayuda
+            if (sancho.active) drawSancho(sancho.x, sancho.y);
             heartsOnGround.forEach(h => { ctx.fillStyle = "red"; ctx.font = "20px serif"; ctx.fillText("♥", h.x, h.y); });
             items.forEach(it => { ctx.fillStyle = "#ffab00"; ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, 7); ctx.fill(); ctx.stroke(); });
 
-            // QUIJOTE ORIGINAL
-            ctx.save(); ctx.translate(player.x, player.y);
-            ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.fillStyle = "#eee";
-            ctx.beginPath(); ctx.ellipse(0, 10, 14, 20, Math.PI/2, 0, 7); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(0, -22, 8, 0, Math.PI, true); ctx.fill(); ctx.stroke();
-            ctx.restore();
+            // Jugador
+            drawQuijote(player.x, player.y);
 
+            // Armas
             spears.forEach(s => { ctx.fillStyle = s.color; ctx.fillRect(s.x-s.w/2, s.y-s.h, s.w, s.h); });
 
+            // Enemigos
             mills.forEach(m => {
                 if (!m.alive) return;
                 ctx.save(); ctx.translate(m.x, m.y); if (m.boss) ctx.scale(2.5, 2.5);
@@ -221,7 +267,17 @@
                 ctx.restore();
             });
 
+            // Proyectiles
             projectiles.forEach(p => { ctx.fillStyle = "#5d4037"; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 7); ctx.fill(); });
+            
+            // Dibujar Trizas (Partículas)
+            particles.forEach(p => { 
+                ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+                ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); 
+                ctx.restore();
+            });
+
+            // Interfaz
             ctx.fillStyle = "#3e2723"; ctx.font = "bold 18px Georgia"; ctx.textAlign = "left";
             ctx.fillText("Gloria: " + score + " | Honor: " + "♥".repeat(lives), 20, 40);
             if (currentState === STATE_GAMEOVER) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,800,600); ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText("Gesta interrumpida. Haz clic para reintentar.", 400, 300); }
