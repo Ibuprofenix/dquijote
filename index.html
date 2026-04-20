@@ -57,7 +57,7 @@
 
     canvas.onclick = () => { 
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        if (currentState === STATE_THE_END) currentState = STATE_MENU;
+        if (currentState === STATE_THE_END) startNewGame(1);
         else if (currentState !== STATE_PLAYING) startNewGame(currentState === STATE_VICTORY ? level + 1 : 1); 
     };
 
@@ -197,7 +197,7 @@
                 let vx = 0;
                 let vy = (level === 1 ? 3.5 : 2.5);
                 
-                // MEJORA: El jefe lanza en diagonal hacia el jugador
+                // MEJORA: El jefe final dispara en diagonal hacia el jugador
                 if (m.boss) {
                     let angle = Math.atan2(player.y - m.y, player.x - m.x);
                     vx = Math.cos(angle) * 4;
@@ -216,8 +216,8 @@
 
         for (let i = projectiles.length - 1; i >= 0; i--) {
             let p = projectiles[i]; 
-            p.y += p.vy;
-            p.x += p.vx;
+            p.y += (p.vy || (p.type === 'wind' ? 3.5 : 2.5)); 
+            p.x += (p.vx || 0);
             if (Math.hypot(p.x - player.x, p.y - player.y) < 25) { 
                 lives--; player.shake = 10; projectiles.splice(i, 1); 
                 playSound(100, 'square', 0.3);
@@ -244,17 +244,14 @@
         ctx.clearRect(0, 0, 800, 600);
         if (currentState === STATE_MENU) {
             ctx.fillStyle = "#3e2723"; ctx.textAlign = "center";
-            ctx.font = "bold 50px Georgia"; ctx.fillText("DON QUIJOTE", 400, 180);
-            ctx.font = "italic 25px Georgia"; ctx.fillText("Capítulo I: Los Molinos", 400, 220);
+            ctx.font = "bold 50px Georgia"; ctx.fillText("DON QUIJOTE", 400, 220);
+            ctx.font = "italic 25px Georgia"; ctx.fillText("Capítulo I: Los Molinos", 400, 260);
+            ctx.fillStyle = "#3e2723"; ctx.fillRect(300, 350, 200, 50);
+            ctx.fillStyle = "#fdf5e6"; ctx.font = "bold 20px Georgia"; ctx.fillText("CABALGAR", 400, 382);
             
-            // --- INSTRUCCIONES ---
-            ctx.font = "bold 16px Georgia"; ctx.fillText("CONTROLES", 400, 280);
-            ctx.font = "16px Georgia";
-            ctx.fillText("← / →  : MOVER CABALLO", 400, 310);
-            ctx.fillText("ESPACIO : LANZAR LANZA", 400, 335);
-
-            ctx.fillStyle = "#3e2723"; ctx.fillRect(300, 380, 200, 50);
-            ctx.fillStyle = "#fdf5e6"; ctx.font = "bold 20px Georgia"; ctx.fillText("CABALGAR", 400, 412);
+            // NUEVO: Instrucciones en pantalla de inicio
+            ctx.fillStyle = "#3e2723"; ctx.font = "16px Georgia";
+            ctx.fillText("Flechas: Moverse | Espacio: Lanzar lanzas", 400, 430);
         } else {
             if (sancho.active) drawSancho(sancho.x, sancho.y);
             heartsOnGround.forEach(h => { ctx.fillStyle = "red"; ctx.font = "bold 25px Georgia"; ctx.textAlign = "center"; ctx.fillText("♥", h.x, h.y); });
@@ -317,8 +314,17 @@
                 ctx.font = "20px Georgia"; ctx.fillText("FIN DE LA GESTA (Clic para volver al inicio)", 400, 400);
             }
         }
-        requestAnimationFrame(() => { update(); draw(); });
+        requestAnimationFrame(draw);
     }
+    
+    // El motor del juego necesita que update() y draw() se llamen correctamente
+    function gameLoop() {
+        update();
+        draw();
+    }
+    
+    // Iniciar el ciclo
+    setInterval(update, 1000/60);
     draw();
 </script>
 </body>
