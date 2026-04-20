@@ -99,6 +99,17 @@
         }
     }
 
+    function checkDeath() {
+        lives = 0; // Se pierden todas las vidas por colisión directa o invasión
+        if (level === 3 && !usedFierabras) { 
+            currentState = STATE_QUIZ; 
+            quizIndex = 0; 
+            quizSequence = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 3); 
+        } else { 
+            currentState = STATE_GAMEOVER; 
+        }
+    }
+
     function update() {
         if (currentState !== STATE_PLAYING) return;
         if (keys['ArrowLeft'] && player.x > 50) player.x -= player.speed;
@@ -122,7 +133,16 @@
         let edge = false; let activeCount = 0;
         mills.forEach(m => {
             if (!m.alive) return; activeCount++;
-            if (!m.boss) { m.x += enemySpeed * enemyDirection; if (m.x > 760 || m.x < 40) edge = true; }
+            
+            // Movimiento lateral
+            if (!m.boss) { 
+                m.x += enemySpeed * enemyDirection; 
+                if (m.x > 760 || m.x < 40) edge = true; 
+                
+                // CONDICIÓN ESENCIAL: Si el enemigo llega a la altura del Quijote
+                if (m.y + 30 >= player.y - 10) { checkDeath(); }
+            }
+            
             spears.forEach((s, si) => {
                 let hit = m.boss ? 70 : 30;
                 if (Math.abs(s.x - m.x) < hit && Math.abs(s.y - m.y) < hit) {
