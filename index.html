@@ -1,183 +1,83 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Don Quijote: El Desenlace</title>
-    <style>
-        body {
-            margin: 0;
-            background: #d2b48c;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Georgia', serif;
-        }
-        canvas {
-            background: #fdf5e6;
-            border: 8px double #3e2723;
-            box-shadow: 0 0 50px rgba(0,0,0,0.6);
-            cursor: pointer;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Don Quijote: El Desenlace</title>
+<style>
+    body {
+        margin: 0;
+        background: #d2b48c;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        font-family: Georgia, serif;
+    }
+    canvas {
+        background: #fdf5e6;
+        border: 8px double #3e2723;
+        box-shadow: 0 0 50px rgba(0,0,0,0.6);
+        cursor: pointer;
+    }
+</style>
 </head>
 <body>
 
 <canvas id="gameCanvas"></canvas>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 canvas.width = 800;
 canvas.height = 600;
 
-/* ---------- SONIDO ---------- */
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playSound(freq, type, duration, vol = 0.1) {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration);
-}
-
 /* ---------- ESTADOS ---------- */
-const STATE_MENU = 0, STATE_PLAYING = 1, STATE_GAMEOVER = 2, STATE_VICTORY = 3, STATE_THE_END = 4;
+const STATE_MENU = 0;
+const STATE_PLAYING = 1;
 let currentState = STATE_MENU;
 
-/* ---------- VARIABLES ---------- */
-let level = 1, score = 0, lives = 3, enemiesDefeated = 0;
-const player = { x: 400, y: 530, speed: 7, shake: 0, powerUp: 0 };
-const spears = [], projectiles = [], mills = [], particles = [], heartsOnGround = [], items = [];
-let sancho = { x: -100, y: 540, active: false, state: 'entering', timer: 0, sanchoUsed: false };
-let enemyDirection = 1, enemySpeed = 1.1, bladeRotation = 0, globalCooldown = 0;
+/* ---------- JUGADOR ---------- */
+const player = { x: 400, y: 530, speed: 7 };
+const keys = {};
 
 /* ---------- CONTROLES ---------- */
-const keys = {};
-window.onkeydown = (e) => {
-    keys[e.code] = true;
-    if (e.code === 'Space' && currentState === STATE_PLAYING) {
-        const isPowered = player.powerUp > 0;
-        spears.push({
-            x: player.x,
-            y: player.y - 25,
-            w: isPowered ? 8 : 4,
-            h: isPowered ? 40 : 25,
-            piercing: isPowered,
-            color: isPowered ? "#ff6d00" : "#b71c1c"
-        });
-        playSound(isPowered ? 150 : 300, 'triangle', 0.2);
-    }
-};
-window.onkeyup = (e) => keys[e.code] = false;
+window.onkeydown = e => keys[e.code] = true;
+window.onkeyup   = e => keys[e.code] = false;
 
 canvas.onclick = () => {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    if (currentState === STATE_THE_END) startNewGame(1);
-    else if (currentState !== STATE_PLAYING) startNewGame(currentState === STATE_VICTORY ? level + 1 : 1);
+    if (currentState === STATE_MENU) currentState = STATE_PLAYING;
 };
 
-/* ---------- INICIO DE PARTIDA ---------- */
-function startNewGame(targetLevel) {
-    level = targetLevel;
-    if (level === 1) score = 0;
-    lives = 3;
-    enemiesDefeated = 0;
-    enemySpeed = 1.1 + level * 0.4;
-    spears.length = projectiles.length = particles.length = heartsOnGround.length = items.length = 0;
-    player.powerUp = 0;
-    player.x = 400;
-    sancho.active = false;
-    sancho.sanchoUsed = false;
-    sancho.x = -100;
-    initEnemies();
-    currentState = STATE_PLAYING;
-    playSound(440, 'sine', 0.5);
-}
-
-/* ---------- ENEMIGOS ---------- */
-function initEnemies() {
-    mills.length = 0;
-    let rows = level === 1 ? 3 : 2;
-    let cols = 8;
-
-    if (level === 3) {
-        mills.push({ x: 400, y: 150, alive: true, hp: 15, boss: true });
-        rows = 1;
-    }
-
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            mills.push({
-                x: c * 90 + 80,
-                y: r * 90 + (level === 3 ? 300 : 70),
-                alive: true,
-                hp: level === 1 ? 1 : 2
-            });
-        }
-    }
-}
-
-/* ---------- DIBUJOS ---------- */
-function drawQuijote(x, y) {
-    ctx.save();
-    ctx.translate(x, y);
-    if (player.shake > 0) ctx.translate(Math.random()*4-2, Math.random()*4-2);
-    ctx.strokeStyle = "#3e2723";
-    ctx.lineWidth = 2;
-    ctx.fillStyle = "#eee";
-    ctx.beginPath();
-    ctx.ellipse(0, 10, 12, 18, Math.PI/2, 0, Math.PI*2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#5d4037";
-    ctx.fillRect(-2, -15, 4, 15);
-    ctx.fillStyle = player.powerUp > 0 ? "#ffd700" : "#999";
-    ctx.beginPath();
-    ctx.arc(0, -22, 7, 0, Math.PI, true);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-}
-
-/* ---------- UPDATE + DRAW ---------- */
+/* ---------- UPDATE ---------- */
 function update() {
     if (currentState !== STATE_PLAYING) return;
 
-    if (keys['ArrowLeft'] && player.x > 50) player.x -= player.speed;
-    if (keys['ArrowRight'] && player.x < 750) player.x += player.speed;
-
-    bladeRotation += 0.08;
+    if (keys["ArrowLeft"] && player.x > 50) player.x -= player.speed;
+    if (keys["ArrowRight"] && player.x < 750) player.x += player.speed;
 }
 
+/* ---------- DRAW ---------- */
 function draw() {
     ctx.clearRect(0, 0, 800, 600);
 
-    /* -------- MENÚ -------- */
+    /* ===== MENÚ INICIAL ===== */
     if (currentState === STATE_MENU) {
         ctx.fillStyle = "#3e2723";
         ctx.textAlign = "center";
 
         ctx.font = "bold 50px Georgia";
-        ctx.fillText("DON QUIJOTE", 400, 200);
+        ctx.fillText("DON QUIJOTE", 400, 190);
 
-        ctx.font = "italic 25px Georgia";
-        ctx.fillText("Capítulo I: Los Molinos", 400, 240);
+        ctx.font = "italic 24px Georgia";
+        ctx.fillText("Capítulo I: Los Molinos", 400, 230);
 
-        ctx.font = "20px Georgia";
-        ctx.fillText("CONTROLES", 400, 300);
+        ctx.font = "bold 22px Georgia";
+        ctx.fillText("CONTROLES", 400, 290);
 
         ctx.font = "18px Georgia";
-        ctx.fillText("⬅️ ➡️  Flechas izquierda / derecha para moverse", 400, 335);
-        ctx.fillText("␣  Barra espaciadora para lanzar la lanza", 400, 365);
+        ctx.fillText("⬅️ ➡️  Flechas izquierda y derecha para moverse", 400, 325);
+        ctx.fillText("␣  Barra espaciadora para atacar", 400, 355);
 
         ctx.fillStyle = "#3e2723";
         ctx.fillRect(300, 420, 200, 50);
@@ -187,14 +87,20 @@ function draw() {
         ctx.fillText("CABALGAR", 400, 452);
     }
 
+    /* ===== JUEGO ===== */
     if (currentState === STATE_PLAYING) {
-        drawQuijote(player.x, player.y);
+        ctx.fillStyle = "#3e2723";
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+        ctx.fill();
     }
 
+    update();
     requestAnimationFrame(draw);
 }
 
 draw();
 </script>
+
 </body>
 </html>
