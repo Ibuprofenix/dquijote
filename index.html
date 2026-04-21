@@ -10,13 +10,11 @@
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 800; canvas.height = 600;
 
-    // --- 1. VARIABLES Y TECLAS AL INICIO ---
     const keys = {};
     const STATE_MENU = 0, STATE_PLAYING = 1, STATE_GAMEOVER = 2, STATE_VICTORY = 3, STATE_THE_END = 4, STATE_QUIZ = 5;
     let currentState = STATE_MENU;
@@ -24,20 +22,26 @@
     let usedFierabras = false, quizSequence = [], quizIndex = 0;
 
     const player = { x: 400, y: 530, speed: 7, powerUp: 0 };
-    const spears = [], projectiles = [], mills = [], heartsOnGround = [], items = [], particles = []; // Añadidas partículas
+    const spears = [], projectiles = [], mills = [], heartsOnGround = [], items = [], particles = [];
     let sancho = { x: -120, y: 540, active: false, state: 'entering', timer: 0, sanchoUsed: false };
     let enemyDirection = 1, enemySpeed = 1.1, bladeRotation = 0, globalCooldown = 0;
+    
+    // Nueva variable para la habilidad del jefe
+    let bossSpawnTimer = 0;
 
-    // --- 2. BANCO DE PREGUNTAS ---
     const quizBank = [
         { q: "¿En qué ciudad nació Cervantes?", o: ["a) Madrid", "b) Sevilla", "c) Alcalá de Henares", "d) Toledo"], c: "KeyC" },
         { q: "¿Por qué es el 'Manco de Lepanto'?", o: ["a) Nació así", "b) Herida en batalla", "c) Prisión", "d) Apodo falso"], c: "KeyB" },
         { q: "¿Nombre real de Don Quijote?", o: ["a) Alonso Quijano", "b) Sancho Panza", "c) Rodrigo Díaz", "d) Diego Mendoza"], c: "KeyA" },
         { q: "¿Qué cree que son los molinos?", o: ["a) Castillos", "b) Dragones", "c) Gigantes", "d) Brujos"], c: "KeyC" },
-        { q: "¿Nombre de su caballo?", o: ["a) Pegaso", "b) Babieca", "c) Rocinante", "d) Clavileño"], c: "KeyC" }
+        { q: "¿Nombre del caballo de don Quijote?", o: ["a) Pegaso", "b) Babieca", "c) Rocinante", "d) Clavileño"], c: "KeyC" },
+        { q: "¿En qué año se publica la 1.ª parte del Quijote?", o: ["a) 1605", "b) 1610", "c) 1615", "d) 1620"], c: "KeyA" },
+        { q: "¿En qué año se publica la 2.ª parte del Quijote?", o: ["a) 1605", "b) 1610", "c) 1615", "d) 1620"], c: "KeyC" },
+        { q: "¿Cuál no es una obra de Cervantes?", o: ["a) Los trabajos de Persiles y Segismunda", "b) Viaje del Parnaso", "c) Las novelas ejemplares", "d) La vida es sueño"], c: "KeyD" },
+        { q: "¿Dónde sufre cautiverio Cervantes?", o: ["a) Estambul", "b) Argel", "c) Marraquech", "d) El Cairo"], c: "KeyB" },
+        { q: "¿De dónde es Dulcinea, la amada de don Quijote?", o: ["a) Del Toboso", "b) De Toledo", "c) De Belmonte", "d) Guadalajara"], c: "KeyA" }
     ];
 
-    // --- 3. EVENTOS ---
     window.onkeydown = (e) => {
         if (currentState === STATE_QUIZ) {
             if (e.code === quizSequence[quizIndex].c) {
@@ -63,7 +67,6 @@
         }
     };
 
-    // --- 4. SONIDO CRASH ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playCrash() {
         const b = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.4, audioCtx.sampleRate);
@@ -78,8 +81,6 @@
         n.connect(f); f.connect(g); g.connect(audioCtx.destination); n.start();
     }
 
-    // --- 5. FUNCIONES DE DIBUJO ---
-
     function drawQuijote(x, y) {
         ctx.save(); ctx.translate(x, y);
         ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.fillStyle = "#eee";
@@ -88,22 +89,17 @@
         ctx.restore();
     }
 
-    // RE-DISEÑO DE SANCHO (Más reconocible)
     function drawSancho(x, y) {
         ctx.save(); ctx.translate(x, y);
-        // Cuerpo (Orondo y con chaleco)
         ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.ellipse(0, 10, 16, 22, Math.PI/2, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#5d4037"; ctx.fillRect(-10, -5, 20, 25); // Chaleco
-        // Cabeza
+        ctx.fillStyle = "#5d4037"; ctx.fillRect(-10, -5, 20, 25);
         ctx.fillStyle = "#d2b48c"; ctx.beginPath(); ctx.arc(0, -15, 12, 0, Math.PI*2); ctx.fill();
-        // Gorra verde característica
         ctx.fillStyle = "#2e7d32"; 
-        ctx.beginPath(); ctx.arc(0, -20, 14, Math.PI, 0); ctx.fill(); // Parte superior
-        ctx.fillRect(-16, -21, 32, 4); // Visera/borde
+        ctx.beginPath(); ctx.arc(0, -20, 14, Math.PI, 0); ctx.fill();
+        ctx.fillRect(-16, -21, 32, 4);
         ctx.restore();
     }
 
-    // SISTEMA DE PARTÍCULAS (Hacerse trizas)
     function createDebris(x, y, color, count) {
         for(let k=0; k<count; k++) {
             particles.push({
@@ -119,31 +115,37 @@
         }
     }
 
-    // --- 6. LÓGICA DE JUEGO ---
-
     function startLevel(tL) {
         level = tL;
         lives = 3; enemiesDefeated = 0; enemySpeed = 1.1 + (level * 0.5);
         spears.length = 0; projectiles.length = 0; items.length = 0; heartsOnGround.length = 0; particles.length = 0;
         player.x = 400; player.powerUp = 0;
         sancho.active = false; sancho.sanchoUsed = false; 
+        bossSpawnTimer = 0; // Reset del timer del jefe
         initEnemies();
         currentState = STATE_PLAYING;
     }
 
     function initEnemies() {
         mills.length = 0;
-        let rows = (level === 1) ? 3 : 2;
-        if (level === 3) { mills.push({ x: 400, y: 150, alive: true, hp: 15, boss: true }); rows = 1; }
-        for (let r = 0; r < rows; r++) {
+        if (level === 3) {
+            // EL JEFE: Ahora empieza en Y=80 (más arriba)
+            mills.push({ x: 400, y: 80, alive: true, hp: 20, boss: true });
+            // Los escoltas también empiezan más arriba (Y=200)
             for (let c = 0; c < 8; c++) {
-                mills.push({ x: c * 90 + 80, y: r * 90 + (level === 3 ? 320 : 80), alive: true, hp: (level === 1 ? 1 : 2) });
+                mills.push({ x: c * 90 + 80, y: 200, alive: true, hp: 2 });
+            }
+        } else {
+            let rows = (level === 1) ? 3 : 2;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < 8; c++) {
+                    mills.push({ x: c * 90 + 80, y: r * 90 + 80, alive: true, hp: (level === 1 ? 1 : 2) });
+                }
             }
         }
     }
 
     function checkDeath() {
-        lives = 0;
         if (level === 3 && !usedFierabras) { 
             currentState = STATE_QUIZ; quizIndex = 0; quizSequence = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 3); 
         } else { currentState = STATE_GAMEOVER; }
@@ -155,6 +157,7 @@
         if (keys['ArrowRight'] && player.x < 750) player.x += player.speed;
         if (player.powerUp > 0) player.powerUp--;
 
+        // Lógica de Sancho
         if (level >= 2 && !sancho.sanchoUsed && !sancho.active && Math.random() < 0.005) { sancho.active = true; sancho.state = 'entering'; sancho.x = -120; sancho.sanchoUsed = true; }
         if (sancho.active) {
             if (sancho.state === 'entering') { sancho.x += 2; if (sancho.x >= 80) { sancho.state = 'throwing'; sancho.timer = 60; } }
@@ -169,9 +172,16 @@
             if (Math.hypot(h.x - player.x, h.y - player.y) < 30) { lives = Math.min(lives+1, 5); heartsOnGround.splice(i, 1); }
         });
 
+        // Lógica de Gigantes
         let edge = false; let activeCount = 0;
+        let bossAlive = false;
+        let bossObj = null;
+
         mills.forEach(m => {
-            if (!m.alive) return; activeCount++;
+            if (!m.alive) return;
+            activeCount++;
+            if (m.boss) { bossAlive = true; bossObj = m; }
+
             if (!m.boss) { 
                 m.x += enemySpeed * enemyDirection; if (m.x > 760 || m.x < 40) edge = true; 
                 if (m.y + 30 >= player.y - 10) { checkDeath(); }
@@ -183,13 +193,28 @@
                     m.hp--; if (!s.piercing) spears.splice(si, 1);
                     if (m.hp <= 0) { 
                         m.alive = false; score += 150; enemiesDefeated++; playCrash(); 
-                        // EFECTO HACERSE TRIZAS
                         createDebris(m.x, m.y, "#5d4037", m.boss ? 40 : 15);
                         if (level >= 2 && enemiesDefeated === 3) items.push({ x: m.x, y: m.y }); 
                     }
                 }
             });
         });
+
+        // HABILIDAD DEL JEFE: Crear gigantes pequeños
+        if (level === 3 && bossAlive) {
+            bossSpawnTimer++;
+            if (bossSpawnTimer > 180) { // Cada 3 segundos aprox
+                mills.push({ 
+                    x: Math.random() * 600 + 100, 
+                    y: bossObj.y + 120, 
+                    alive: true, 
+                    hp: 1, 
+                    isMinion: true // Para identificarlos si quisieras
+                });
+                bossSpawnTimer = 0;
+            }
+        }
+
         if (edge) { enemyDirection *= -1; mills.forEach(m => { if(m.alive && !m.boss) m.y += 25; }); }
 
         items.forEach((it, i) => { it.y += 2; if (Math.hypot(it.x - player.x, it.y - player.y) < 30) { player.powerUp = 400; items.splice(i, 1); } });
@@ -206,18 +231,14 @@
             let p = projectiles[i]; p.x += p.vx; p.y += p.vy;
             if (Math.hypot(p.x - player.x, p.y - player.y) < 25) { 
                 lives--; projectiles.splice(i, 1); 
-                if (lives <= 0) {
-                    if (level === 3 && !usedFierabras) { currentState = STATE_QUIZ; quizIndex = 0; quizSequence = [...quizBank].sort(() => 0.5 - Math.random()).slice(0, 3); }
-                    else currentState = STATE_GAMEOVER;
-                }
+                if (lives <= 0) checkDeath();
             } else if (p.y > 600) projectiles.splice(i,1);
         }
 
         spears.forEach((s, i) => { s.y -= 10; if (s.y < -50) spears.splice(i, 1); });
         
-        // Actualizar Partículas
         particles.forEach((p, i) => { 
-            p.x += p.vx; p.y += p.vy; p.vy += 0.2; // Gravedad
+            p.x += p.vx; p.y += p.vy; p.vy += 0.2;
             p.rot += p.vRot; p.life--; 
             if(p.life<=0) particles.splice(i,1); 
         });
@@ -241,21 +262,21 @@
             ctx.fillStyle = "#3e2723"; ctx.textAlign = "center"; ctx.font = "bold 40px Georgia"; ctx.fillText("¡GESTA COMPLETADA!", 400, 300);
             ctx.font = "20px Georgia"; ctx.fillText("Haz clic para el siguiente capítulo", 400, 350);
         } else {
-            // Elementos de fondo y ayuda
             if (sancho.active) drawSancho(sancho.x, sancho.y);
             heartsOnGround.forEach(h => { ctx.fillStyle = "red"; ctx.font = "20px serif"; ctx.fillText("♥", h.x, h.y); });
             items.forEach(it => { ctx.fillStyle = "#ffab00"; ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, 7); ctx.fill(); ctx.stroke(); });
 
-            // Jugador
             drawQuijote(player.x, player.y);
 
-            // Armas
             spears.forEach(s => { ctx.fillStyle = s.color; ctx.fillRect(s.x-s.w/2, s.y-s.h, s.w, s.h); });
 
-            // Enemigos
             mills.forEach(m => {
                 if (!m.alive) return;
-                ctx.save(); ctx.translate(m.x, m.y); if (m.boss) ctx.scale(2.5, 2.5);
+                ctx.save(); ctx.translate(m.x, m.y); 
+                if (m.boss) ctx.scale(2.5, 2.5);
+                // Si es un minion invocado, lo hacemos un poco más pequeño que el normal
+                else if (m.isMinion) ctx.scale(0.7, 0.7);
+
                 ctx.strokeStyle = "#3e2723"; ctx.lineWidth = 2;
                 if (level === 1) {
                     ctx.fillStyle = "white"; ctx.beginPath(); ctx.moveTo(-15, 20); ctx.lineTo(-10, -15); ctx.lineTo(10, -15); ctx.lineTo(15, 20); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -267,17 +288,14 @@
                 ctx.restore();
             });
 
-            // Proyectiles
             projectiles.forEach(p => { ctx.fillStyle = "#5d4037"; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 7); ctx.fill(); });
             
-            // Dibujar Trizas (Partículas)
             particles.forEach(p => { 
                 ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
                 ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); 
                 ctx.restore();
             });
 
-            // Interfaz
             ctx.fillStyle = "#3e2723"; ctx.font = "bold 18px Georgia"; ctx.textAlign = "left";
             ctx.fillText("Gloria: " + score + " | Honor: " + "♥".repeat(lives), 20, 40);
             if (currentState === STATE_GAMEOVER) { ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,800,600); ctx.fillStyle="white"; ctx.textAlign="center"; ctx.fillText("Gesta interrumpida. Haz clic para reintentar.", 400, 300); }
