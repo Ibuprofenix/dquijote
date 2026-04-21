@@ -199,11 +199,51 @@
         else { ctx.drawImage(imgQ, 0, 0, 200, 250, q.x, q.y, q.w, q.h); }
         ctx.restore();
 
-        // Enemigos
-        enemies.forEach(e => {
-            let img = e.type === 'mill' ? imgM : imgG;
-            ctx.drawImage(img, 0, 0, 200, 250, e.x, e.y, e.w, e.h);
-        });
+        // --- DENTRO DE LA FUNCIÓN draw() ---
+
+// Reemplaza la sección que dibuja los enemigos por esta:
+
+enemies.forEach(e => {
+    if (e.type === 'mill') {
+        // --- LÓGICA DE RECORTE PARA sprites_molinos.png (image_10.png) ---
+        // Tu imagen es 2x2. Asumimos que cada cuadro es de 200x250px.
+        let frameW = 200; 
+        let frameH = 250;
+        let col, row;
+
+        // Decidimos qué frame usar basado en el tiempo (frame % 30 para animar lento)
+        let animFrame = Math.floor(frame / 30) % 2; 
+
+        if (e.hp > 0) {
+            // MOLINO VIVO (Fila superior de image_10.png)
+            row = 0; // Primera fila
+            col = animFrame; // Columna 0 o 1 (Giro A o Giro B)
+        } else {
+            // MOLINO EXPLOTANDO (Fila inferior de image_10.png)
+            // Nota: En el código actual, el enemigo se elimina al morir.
+            // Para ver la explosión, necesitaríamos un estado 'EXPLODING'
+            // Por ahora, si e.hp es 0, usamos la fila inferior.
+            row = 1; // Segunda fila
+            col = Math.floor(frame / 10) % 2; // Explosión rápida (col 0 o 1)
+        }
+
+        // Calculamos las coordenadas X e Y exactas en el spritesheet
+        let sourceX = col * frameW;
+        let sourceY = row * frameH;
+
+        // Dibujamos el molino con recorte exacto y transparencia real
+        ctx.drawImage(
+            imgM, 
+            sourceX, sourceY, frameW, frameH, // Recorte de image_10.png
+            e.x, e.y, e.w, e.h             // Dibujo en pantalla
+        );
+
+    } else if (e.type === 'giant') {
+        // Lógica para gigantes (franja horizontal de 4 frames esperada)
+        let gFrame = Math.floor(frame / 15) % 4; // Animación de 4 frames
+        ctx.drawImage(imgG, gFrame * 200, 0, 200, 250, e.x, e.y, e.w, e.h);
+    }
+});
 
         // Sancho
         if (sancho.state !== 'HIDDEN') ctx.drawImage(imgS, 0, 0, 200, 250, sancho.x, sancho.y, 80, 100);
