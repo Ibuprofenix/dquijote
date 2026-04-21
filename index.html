@@ -2,11 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Don Quijote: El Rescate de Dulcinea</title>
+    <title>Don Quijote: El Rescate - VERSIÓN FUNCIONAL</title>
     <style>
-        body { background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Georgia', serif; overflow: hidden; }
-        canvas { background: #f4e4bc; border: 8px solid #5d4037; box-shadow: 0 0 20px rgba(0,0,0,0.5); cursor: crosshair; }
-        #ui-layer { position: absolute; pointer-events: none; color: #3e2723; text-align: center; width: 800px; }
+        body { background: #333; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', monospace; overflow: hidden; color: white; }
+        canvas { background: #fdf5e6; border: 6px solid #5d4037; box-shadow: 0 0 15px rgba(0,0,0,0.5); cursor: crosshair; }
     </style>
 </head>
 <body>
@@ -17,13 +16,7 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // --- CARGA DE ASSETS (PNG con Transparencia) ---
-    const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
-    const imgM = new Image(); imgM.src = 'sprites_molinos.png'; // ¡Reutilizando tu spritesheet 2x2!
-    const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
-    const imgS = new Image(); imgS.src = 'sprites_sancho.png';
-
-    // --- BANCO DE PREGUNTAS (EL BÁLSAMO DE FIERABRÁS) ---
+    // --- BANCO DE PREGUNTAS ---
     const quizBank = [
         { q: "¿En qué ciudad nació Cervantes?", o: ["a) Madrid", "b) Sevilla", "c) Alcalá de Henares", "d) Toledo"], c: "KeyC" },
         { q: "¿Por qué es el 'Manco de Lepanto'?", o: ["a) Nació así", "b) Herida en batalla", "c) Prisión", "d) Apodo falso"], c: "KeyB" },
@@ -45,26 +38,24 @@
     let frame = 0;
     let currentQuiz = [];
     let quizIndex = 0;
-    let hasBalsamUsed = false; // Solo permite el bálsamo una vez
+    let hasBalsamUsed = false;
+    let invulnerableTimer = 0;
 
-    // Coordenadas fijas para recortes (W, H)
-    const FRAME_W = 200;
-    const FRAME_H = 250;
+    // Configuración del suelo
+    const GROUND_Y = 480;
 
     // Entidades
-    let q = { x: 100, y: 300, w: 80, h: 100, speed: 5, facingRight: true, power: false };
+    let q = { x: 100, y: GROUND_Y - 80, w: 40, h: 80, speed: 6, power: false, cooldown: 0 };
     let enemies = [];
     let spears = [];
-    let sancho = { x: -100, y: 450, state: 'HIDDEN', targetX: 100 };
-    let item = { x: 0, y: 0, active: false, type: '', timer: 0 };
+    let sancho = { x: -60, y: GROUND_Y - 60, state: 'HIDDEN', targetX: 100, cooldown: 0 };
+    let item = { x: 0, y: GROUND_Y - 30, active: false, type: '', timer: 0 };
     let keys = {};
 
     // --- CONTROLES ---
     window.onkeydown = (e) => {
         keys[e.code] = true;
-        // Iniciar nivel o continuar desde resumen
-        if ((state === 'START' || state === 'SUMMARY') && (e.code === 'Space' || e.code === 'Enter')) startLevel();
-        // Responder trivia
+        if ((state === 'START' || state === 'SUMMARY') && e.code === 'Space') startLevel();
         if (state === 'TRIVIA') checkTrivia(e.code);
     };
     window.onkeyup = (e) => keys[e.code] = false;
@@ -72,25 +63,29 @@
     // --- LÓGICA DE NIVELES ---
     function startLevel() {
         if (state === 'SUMMARY') level++;
-        if (level > 3) return; // Ya no debería pasar
+        if (level > 3) return;
         
         state = 'PLAY';
         enemies = [];
         spears = [];
         timer = 0;
-        sancho.state = 'HIDDEN'; // Reset Sancho
+        sancho.state = 'HIDDEN';
+        sancho.cooldown = 300; // Un poco de espera para Sancho
         item.active = false;
         
-        if (level === 1) spawnEnemies(5, 'mill', 1);
-        if (level === 2) spawnEnemies(6, 'giant', 2); // Gigantes con 2 HP
+        // Spawn de enemigos específicos por nivel
+        if (level === 1) spawnEnemies(5, 'mill', 1); // Molinos (1 HP)
+        if (level === 2) spawnEnemies(7, 'giant', 2); // Gigantes (2 HP)
         if (level === 3) {
-            enemies.push({ x: 600, y: 200, w: 150, h: 200, hp: 25, type: 'boss', sTimer: 0 });
+            // Megagigante (Boss)
+            enemies.push({ x: 650, y: GROUND_Y - 180, w: 100, h: 180, hp: 30, type: 'boss', sTimer: 0 });
         }
     }
 
     function spawnEnemies(count, type, hp) {
         for(let i=0; i<count; i++) {
-            enemies.push({ x: 400 + i*150, y: 150 + Math.random()*250, w: 80, h: 100, hp: hp, type: type, speed: type === 'giant' ? 1 : 0 });
+            // Posición aleatoria sobre el suelo
+            enemies.push({ x: 450 + i*130, y: GROUND_Y - 90, w: 60, h: 90, hp: hp, type: type, speed: type === 'giant' ? 1.5 : 0 });
         }
     }
 
@@ -99,107 +94,109 @@
         if (state !== 'PLAY') return;
         frame++;
         timer++;
+        if (invulnerableTimer > 0) invulnerableTimer--;
 
-        // Movimiento Don Quijote
-        if (keys['ArrowRight']) { q.x += q.speed; q.facingRight = true; }
-        if (keys['ArrowLeft']) { q.x -= q.speed; q.facingRight = false; }
-        if (keys['ArrowUp']) q.y -= q.speed;
-        if (keys['ArrowDown']) q.y += q.speed;
-        // Disparo (cada 20 frames para no "spam")
-        if (keys['Space'] && frame % 20 === 0) fireSpear();
+        // Movimiento Don Quijote (Controles de dirección)
+        if (keys['ArrowRight']) q.x += q.speed;
+        if (keys['ArrowLeft']) q.x -= q.speed;
+        // Salto básico (opcional)
+        // Disparo (cada 20 frames)
+        if (keys['Space'] && q.cooldown <= 0) { fireSpear(); q.cooldown = 20; }
+        if (q.cooldown > 0) q.cooldown--;
 
         // Límites de pantalla para Quijote
         q.x = Math.max(0, Math.min(canvas.width - q.w, q.x));
-        q.y = Math.max(150, Math.min(canvas.height - q.h, q.y)); // Mantener sobre suelo
 
-        // Gestión de Sancho Panza y Ayudas (Nivel 2 y 3)
-        if (level >= 2 && sancho.state === 'HIDDEN' && Math.random() < 0.003) sancho.state = 'IN';
-        if (sancho.state === 'IN') {
-            sancho.x += 2;
-            if (sancho.x >= sancho.targetX) { dropItem(); sancho.state = 'OUT'; }
-        } else if (sancho.state === 'OUT') {
-            sancho.x -= 2;
-            if (sancho.x < -100) sancho.state = 'HIDDEN';
+        // Gestión de Sancho Panza (Nivel 2 y 3)
+        if (level >= 2) {
+            sancho.cooldown--;
+            if (sancho.state === 'HIDDEN' && sancho.cooldown <= 0) sancho.state = 'IN';
+            
+            if (sancho.state === 'IN') {
+                sancho.x += 2;
+                if (sancho.x >= sancho.targetX) { dropItem(); sancho.state = 'OUT'; }
+            } else if (sancho.state === 'OUT') {
+                sancho.x -= 2;
+                if (sancho.x < -60) { sancho.state = 'HIDDEN'; sancho.cooldown = 600; } // Espera 10s
+            }
         }
 
-        // Lógica de Ayuda/Item (Corazón o Lanza)
+        // Ítem de Ayuda (Dura 3 seg = 180 frames)
         if (item.active) {
             item.timer--;
-            // Colisión con el ítem
+            // Colisión Quijote con ítem
             if (hit(q, item)) {
                 if (item.type === 'HEART') lives++;
                 else { q.power = true; setTimeout(() => q.power = false, 5000); } // 5s de poder
                 item.active = false;
             }
-            if (item.timer <= 0) item.active = false; // Desaparece tras 3 seg
+            if (item.timer <= 0) item.active = false;
         }
 
-        // Enemigos y Boss
+        // Lógica de Enemigos y Boss
         enemies.forEach((e, index) => {
-            if (e.type === 'giant') e.x -= e.speed;
+            // Movimiento de Gigantes hacia la izquierda
+            if (e.type === 'giant') {
+                e.x -= e.speed;
+                if (e.x < -e.w) e.x = canvas.width; // Reaparecer si sale
+            }
             
             // Megagigante (Boss Nivel 3): Invocar pequeños gigantes
             if (e.type === 'boss') {
                 e.sTimer++;
-                if (e.sTimer > 200) { // Invocar cada ~3.3 seg
-                    enemies.push({ x: e.x, y: e.y + 100, w: 60, h: 80, hp: 1, type: 'giant', speed: 2 });
+                if (e.sTimer > 240) { // Invocar cada 4 seg
+                    enemies.push({ x: e.x, y: GROUND_Y - 70, w: 40, h: 70, hp: 1, type: 'giant', speed: 2.5 });
                     e.sTimer = 0;
                 }
             }
 
-            // Colisión Quijote contra enemigo
-            if (hit(q, e) && e.hp > 0) { 
+            // Colisión Quijote contra enemigo (si no es invulnerable)
+            if (hit(q, e) && invulnerableTimer <= 0) { 
                 lives--; 
+                invulnerableTimer = 60; // 1 segundo de invulnerabilidad
                 checkDeath();
-                // Opcional: invulnerabilidad temporal o retroceso
             }
         });
 
-        // Proyectiles (Lanzas)
+        // Lanzas (Proyectiles que van de izquierda a derecha)
         spears.forEach((s, si) => {
-            s.x += 12; // Velocidad lanza
-            if (s.x > canvas.width) spears.splice(si, 1); // Eliminar fuera
+            s.x += s.speed;
+            if (s.x > canvas.width) spears.splice(si, 1);
 
             enemies.forEach((e, ei) => {
-                if (hit(s, e) && e.hp > 0) {
+                if (hit(s, e)) {
                     e.hp--;
                     spears.splice(si, 1);
-                    // Si el enemigo muere, el loop principal de draw() se encargará de mostrar la explosión
-                    // Opcional: retrasar la eliminación del array enemies para mostrar explosión completa.
-                    if (e.hp <= 0 && e.type !== 'boss') {
-                        // Para simplificar, eliminamos de inmediato. 
-                        // Tu código de draw() no mostrará los molinos con hp=0.
+                    if (e.hp <= 0) {
                         enemies.splice(ei, 1); 
-                        score += (level * 10);
-                    } else if (e.hp <= 0 && e.type === 'boss') {
-                        enemies.splice(ei, 1);
-                        state = 'WIN'; // Victoria definitiva
+                        if (e.type === 'boss') state = 'WIN'; // Victoria definitiva
                     }
                 }
             });
         });
 
-        // Verificar Victoria de Nivel (No boss)
+        // Verificar Victoria de Nivel (si quedan enemigos y no es el boss)
         if (level < 3 && enemies.length === 0) state = 'SUMMARY';
     }
 
     function fireSpear() {
-        let lanceW = 30, lanceH = 10;
-        spears.push({ x: q.x + q.w, y: q.y + q.h/2, w: lanceW, h: lanceH });
+        // La lanza sale de frente, hacia la derecha
+        spears.push({ x: q.x + q.w, y: q.y + q.h/2 - 5, w: 30, h: 10, speed: 10 });
         // Lanza triple si tiene powermode
         if (q.power) {
-            spears.push({ x: q.x + q.w, y: q.y + q.h/2 - 20, w: lanceW, h: lanceH });
-            spears.push({ x: q.x + q.w, y: q.y + q.h/2 + 20, w: lanceW, h: lanceH });
+            spears.push({ x: q.x + q.w, y: q.y + q.h/2 - 25, w: 30, h: 10, speed: 10 });
+            spears.push({ x: q.x + q.w, y: q.y + q.h/2 + 15, w: 30, h: 10, speed: 10 });
         }
     }
 
     function dropItem() {
-        item = { x: sancho.x + 50, y: sancho.y, active: true, type: Math.random() > 0.5 ? 'HEART' : 'SPEAR', timer: 180, w: 30, h: 30 };
+        // El ítem se queda donde Sancho se para
+        item = { x: sancho.x + 20, y: sancho.y + 30, w: 20, h: 20, active: true, type: Math.random() > 0.5 ? 'HEART' : 'SPEAR', timer: 180 };
     }
 
     function checkDeath() {
         if (lives <= 0) {
-            // Activar trivia solo en Nivel 3 y una vez
+            // Trivia solo en Nivel 3 y una vez
             if (level === 3 && !hasBalsamUsed) {
                 currentQuiz = quizBank.sort(() => 0.5 - Math.random()).slice(0, 3);
                 quizIndex = 0;
@@ -210,22 +207,17 @@
         }
     }
 
-    // Lógica de Trivia (A=KeyA, B=KeyB, etc.)
+    // Lógica de Trivia
     function checkTrivia(keyCode) {
         if (keyCode === currentQuiz[quizIndex].c) {
             quizIndex++;
-            if (quizIndex >= 3) { 
-                lives = 1; // Resucita con 1 vida
-                hasBalsamUsed = true; 
-                state = 'PLAY'; 
-            }
+            if (quizIndex >= 3) { lives = 1; hasBalsamUsed = true; state = 'PLAY'; }
         } else {
-            // Respuesta incorrecta
             state = 'GAMEOVER';
         }
     }
 
-    // Utilidad de colisión (AABB simple)
+    // Colisión AABB simple
     function hit(a, b) {
         return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     }
@@ -234,56 +226,48 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Suelo de La Mancha (un simple gradiente o color plano)
-        ctx.fillStyle = '#eec988';
-        ctx.fillRect(0, 150, canvas.width, canvas.height - 150);
+        // Cielo y Suelo
+        ctx.fillStyle = '#b3e5fc'; // Cielo azul claro
+        ctx.fillRect(0, 0, canvas.width, GROUND_Y);
+        ctx.fillStyle = '#8d6e63'; // Suelo tierra
+        ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
 
-        // --- Dibujar Don Quijote (CON ESPEJO) ---
-        // Asignamos coordenadas de recorte basadas en la animación (fila 0 esperada para trote)
-        let qAnim = Math.floor(frame / 10) % 2; // Alternar frames 0 y 1
+        // --- Dibujar Don Quijote (Rectángulo Azul) ---
+        ctx.fillStyle = (invulnerableTimer > 0 && frame % 10 < 5) ? 'rgba(30,144,255,0.3)' : '#1e90ff';
+        ctx.fillRect(q.x, q.y, q.w, q.h);
+        // "Lanza" visual en la mano
+        ctx.fillStyle = '#8b4513';
+        ctx.fillRect(q.x + q.w/2, q.y + q.h/2, 40, 6);
 
-        ctx.save();
-        if (!q.facingRight) { 
-            // Truco del espejo: mover el contexto al borde del sprite, escalar al revés
-            ctx.translate(q.x + q.w, 0); 
-            ctx.scale(-1, 1); 
-            // Dibujamos en origen 0 (ya trasladado)
-            ctx.drawImage(imgQ, qAnim * FRAME_W, 0, FRAME_W, FRAME_H, 0, q.y, q.w, q.h); 
-        } else { 
-            // Dibujo normal a la derecha
-            ctx.drawImage(imgQ, qAnim * FRAME_W, 0, FRAME_W, FRAME_H, q.x, q.y, q.w, q.h); 
-        }
-        ctx.restore();
-
-        // --- Enemigos ---
+        // --- Enemigos (Molinos/Gigantes/Boss) ---
         enemies.forEach(e => {
             if (e.type === 'mill') {
-                // --- LÓGICA ESPECÍFICA PARA CUADRÍCULA 2x2 (image_10.png) ---
-                // Fila 0 = Molino vivo. Columna = Animación (Giro).
-                let millAnim = Math.floor(frame / 30) % 2; // Giro lento alternando col 0 y 1
-                ctx.drawImage(imgM, millAnim * FRAME_W, 0, FRAME_W, FRAME_H, e.x, e.y, e.w, e.h);
-            
-            } else if (e.type === 'giant' || e.type === 'boss') {
-                // Gigantes y Boss (Franja horizontal de 4 frames esperada en imgG)
-                // Columna = Animación
-                let gAnim = Math.floor(frame / 15) % 4; 
-                ctx.drawImage(imgG, gAnim * FRAME_W, 0, FRAME_W, FRAME_H, e.x, e.y, e.w, e.h);
+                ctx.fillStyle = '#d7ccc8'; // Molino grisáceo
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+                // Aspas (estáticas o simples)
+                ctx.fillStyle = '#5d4037';
+                ctx.fillRect(e.x + e.w/2 - 30, e.y + 20, 60, 6);
+                ctx.fillRect(e.x + e.w/2 - 3, e.y - 10, 6, 60);
+            } else if (e.type === 'giant') {
+                ctx.fillStyle = '#bf360c'; // Gigante rojo-marrón
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+            } else if (e.type === 'boss') {
+                ctx.fillStyle = '#3e2723'; // Boss marrón oscuro
+                ctx.fillRect(e.x, e.y, e.w, e.h);
             }
         });
 
-        // --- Sancho Panza ---
+        // --- Sancho Panza (Rectángulo Verde) ---
         if (sancho.state !== 'HIDDEN') {
-            // Franja horizontal esperada: frame 0 caminando, frame 1 lanzando
-            let sAnim = sancho.state === 'IN' ? Math.floor(frame / 10) % 2 : 1;
-            ctx.drawImage(imgS, sAnim * FRAME_W, 0, FRAME_W, FRAME_H, sancho.x, sancho.y, 80, 100);
+            ctx.fillStyle = '#2e7d32';
+            ctx.fillRect(sancho.x, sancho.y, 40, 60);
         }
         
-        // --- Ítem de Ayuda (Corazón/Lanza) ---
+        // --- Ítem de Ayuda (Círculo parpadeante) ---
         if (item.active) {
-            // Efecto de parpadeo al final
             if (item.timer > 60 || (item.timer <= 60 && frame % 10 < 5)) {
                 ctx.fillStyle = item.type === 'HEART' ? 'red' : 'gold';
-                ctx.beginPath(); ctx.arc(item.x + item.w/2, item.y + item.h/2, 15, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(item.x + item.w/2, item.y + item.h/2, 10, 0, Math.PI*2); ctx.fill();
             }
         }
 
@@ -292,63 +276,48 @@
         spears.forEach(s => ctx.fillRect(s.x, s.y, s.w, s.h));
 
         // --- INTERFAZ (UI) PRINCIPAL ---
-        ctx.fillStyle = '#3e2723';
+        ctx.fillStyle = 'black';
         ctx.textAlign = 'left';
-        ctx.font = 'bold 22px Georgia';
-        ctx.fillText(` Honor (Vidas): ${lives} `, 20, 30);
+        ctx.font = '22px Courier New';
+        ctx.fillText(` Honor: ${lives}`, 20, 30);
         ctx.textAlign = 'right';
-        ctx.fillText(` Nivel: ${level} / 3 `, canvas.width - 20, 30);
+        ctx.fillText(` Nivel: ${level}/3 `, canvas.width - 20, 30);
 
-        // --- PANTALLAS DE ESTADO (OVERLAYS) ---
-        if (state === 'START') {
-            overlay("DON QUIJOTE: EL RESCATE DE DULCINEA", 
-                    "¡Voto a bríos, hidalgo! Frestón ha raptado a Dulcinea.\n" +
-                    "INSTRUCCIONES DE MANEJO:\n\n" +
-                    "FLECHAS: Moverse | ESPACIO: Lanzar Lanza\n\n" +
-                    "[Pulsa ESPACIO o ENTER para cabalgar]");
-        } else if (state === 'SUMMARY') {
-            let timeBonus = Math.max(0, 1000 - timer);
-            score += timeBonus;
-            overlay(`¡NIVEL ${level} SUPERADO!`, 
-                    `Honor conservado: ${lives}\nPresteza (Bonus Tiempo): ${timeBonus}\n\nPuntuación Total: ${score}\n\n[Pulsa para continuar al siguiente reto]`);
-        } else if (state === 'GAMEOVER') {
-            overlay("DERROTADO", 
-                    "Tu honor ha caído en el campo de batalla.\nFrestón se regocija y Dulcinea llora.\n\n[Pulsa F5 para reintentar]");
-        } else if (state === 'WIN') {
-            overlay("¡VICTORIA ÉPICA!", 
-                    "¡Has rescatado a tu enamorada Dulcinea de las manos de Frestón!\n" +
-                    "La Mancha celebra tu honor y presteza.\n\nPuntuación Final: ${score}\n\n[¡Felicidades, Caballero!]");
-        } else if (state === 'TRIVIA') {
+        // --- PANTALLAS DE ESTADO ---
+        if (state === 'START') overlay("DON QUIJOTE: EL RESCATE", "Usa FLECHAS para moverte\nESPACIO para lanzar lanza.\n\n[Pulsa ESPACIO para cabalgar]");
+        if (state === 'SUMMARY') overlay("NIVEL SUPERADO", `Puntuación: ${timer}\n\n[Pulsa ESPACIO para continuar]`);
+        if (state === 'GAMEOVER') overlay("DERROTADO", "Tu honor ha caído.\n\n[Pulsa F5 para reintentar]");
+        if (state === 'WIN') overlay("¡VICTORIA ÉPICA!", "¡Has rescatado a Dulcinea de Frestón!\n\n[¡Felicidades, Caballero!]");
+        if (state === 'TRIVIA') {
             let cur = currentQuiz[quizIndex];
-            overlay("EL BÁLSAMO DE FIERABRÁS", 
-                    "¡Has caído! Demuestra tus conocimientos para resucitar.\nPregunta ${quizIndex+1} / 3:\n\n" +
-                    `${cur.q}\n\n` +
-                    `${cur.o.join('  ')}\n\n` +
-                    "Responde pulsando la tecla [A], [B], [C] o [D]");
+            overlay("EL BÁLSAMO DE FIERABRÁS", "Demuestra tus conocimientos\nPregunta ${quizIndex+1}/3:\n\n" + `${cur.q}\n\n` + `${cur.o.join(' ')}\n\n` + "Pulsa [A], [B], [C] o [D]");
         }
-
-        // --- BUCLE DE ANIMACIÓN ---
-        requestAnimationFrame(() => { update(); draw(); });
     }
 
     // Utilidad para dibujar overlays de texto
     function overlay(title, sub) {
-        ctx.fillStyle = 'rgba(244, 228, 188, 0.9)'; // Fondo pergamino semitransparente
+        ctx.fillStyle = 'rgba(253, 245, 230, 0.9)'; // Pergamino
         ctx.fillRect(50, 100, 700, 400);
-        ctx.fillStyle = '#3e2723';
+        ctx.fillStyle = 'black';
         ctx.textAlign = 'center';
-        
-        ctx.font = 'bold 44px Georgia';
-        ctx.fillText(title, 400, 170);
-        
-        ctx.font = '22px Georgia';
+        ctx.font = 'bold 36px Courier New';
+        ctx.fillText(title, 400, 180);
+        ctx.font = '20px Courier New';
         let lines = sub.split('\n');
-        lines.forEach((l, i) => ctx.fillText(l, 400, 230 + i*35));
+        lines.forEach((l, i) => ctx.fillText(l, 400, 240 + i*30));
     }
 
-    // --- INICIO DEL JUEGO ---
-    // Aseguramos que las imágenes estén cargadas antes del primer frame (aunque draw() ya maneja esto)
-    draw();
+    // --- BUCLE DE ANIMACIÓN ---
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // INICIO
+    startLevel(); // Cargar datos iniciales
+    state = 'START'; // Pero mostrar pantalla de inicio
+    gameLoop();
 
     </script>
 </body>
