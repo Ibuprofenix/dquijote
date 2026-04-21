@@ -5,7 +5,7 @@
     <title>Don Quijote: El Caballero de los Sprites</title>
     <style>
         body { background: #2c1b0e; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; font-family: 'Georgia', serif; }
-        canvas { border: 4px solid #5d4037; box-shadow: 0 0 20px rgba(0,0,0,0.5); background: #fdf5e6; cursor: crosshair; }
+        canvas { border: 4px solid #5d4037; background: #fdf5e6; image-rendering: pixelated; }
     </style>
 </head>
 <body>
@@ -23,204 +23,146 @@
     const imgExplosiones = new Image(); imgExplosiones.src = 'sprites_explosiones.png';
     const imgSancho = new Image(); imgSancho.src = 'sprites_sancho.png';
 
-    // --- COORDENADAS DE SPRITES (Basadas en tus imágenes) ---
-    const PLAYER_FRAMES = [{x: 0, y: 320, w: 280, h: 400}, {x: 320, y: 320, w: 280, h: 400}];
-    const MOLINO_FRAME = {x: 730, y: 330, w: 260, h: 400};
+    // --- COORDINADAS CORREGIDAS (Ajustadas para evitar recortes) ---
+    const PLAYER_FRAMES = [{x: 10, y: 300, w: 290, h: 450}, {x: 310, y: 300, w: 290, h: 450}];
+    const MOLINO_FRAME = {x: 700, y: 300, w: 300, h: 450}; // Área más grande para el molino
     const GIGANTE_FRAMES = {
-        WALK1: {x: 0, y: 350, w: 250, h: 350}, WALK2: {x: 250, y: 350, w: 250, h: 350},
-        THROW: {x: 500, y: 320, w: 250, h: 380}, BOSS_POSE: {x: 750, y: 320, w: 250, h: 380}
+        WALK1: {x: 0, y: 300, w: 250, h: 400}, 
+        WALK2: {x: 250, y: 300, w: 250, h: 400},
+        THROW: {x: 500, y: 300, w: 250, h: 400}, 
+        BOSS: {x: 750, y: 300, w: 250, h: 400}
     };
-    const EXPLOSION_FRAMES = [{x: 0, y: 300, w: 230, h: 250}, {x: 230, y: 300, w: 250, h: 250}, {x: 480, y: 300, w: 250, h: 250}, {x: 730, y: 300, w: 250, h: 250}];
+    const EXPLOSION_FRAMES = [
+        {x: 0, y: 280, w: 250, h: 280}, {x: 250, y: 280, w: 250, h: 280}, 
+        {x: 500, y: 280, w: 250, h: 280}, {x: 750, y: 280, w: 250, h: 280}
+    ];
     const SANCHO_FRAMES = {
-        WAIT: {x: 0, y: 350, w: 250, h: 350}, GIVE: {x: 520, y: 330, w: 250, h: 380},
-        HEART: {x: 320, y: 350, w: 100, h: 100}, HEART_ALT: {x: 420, y: 350, w: 100, h: 100},
-        BALSAMO: {x: 880, y: 440, w: 120, h: 150}
+        WAIT: {x: 0, y: 300, w: 260, h: 400}, 
+        GIVE: {x: 500, y: 300, w: 260, h: 400},
+        HEART: {x: 300, y: 340, w: 120, h: 120},
+        BALSAMO: {x: 850, y: 400, w: 150, h: 200}
     };
 
-    // --- BANCO DE PREGUNTAS ---
+    // --- ESTADO ---
+    let currentState = 0, level = 1, score = 0, lives = 3, levelTimer = 0, animTick = 0;
+    const keys = {};
+    const player = { x: 400, y: 520, frame: 0 };
+    const mills = [], projectiles = [], spears = [], explosions = [], hearts = [];
+    let sancho = { x: -150, active: false, state: 'in' };
+    let enemyDir = 1, cooldown = 0, quizIdx = 0, curQuiz = [], usedBalsamo = false;
+
+    // --- BANCO PREGUNTAS ---
     const quizBank = [
         { q: "¿En qué ciudad nació Cervantes?", o: ["a) Madrid", "b) Sevilla", "c) Alcalá de Henares", "d) Toledo"], c: "KeyC" },
         { q: "¿Por qué es el 'Manco de Lepanto'?", o: ["a) Nació así", "b) Herida en batalla", "c) Prisión", "d) Apodo falso"], c: "KeyB" },
         { q: "¿Nombre real de Don Quijote?", o: ["a) Alonso Quijano", "b) Sancho Panza", "c) Rodrigo Díaz", "d) Diego Mendoza"], c: "KeyA" },
         { q: "¿Qué cree que son los molinos?", o: ["a) Castillos", "b) Dragones", "c) Gigantes", "d) Brujos"], c: "KeyC" },
-        { q: "¿Nombre del caballo de don Quijote?", o: ["a) Pegaso", "b) Babieca", "c) Rocinante", "d) Clavileño"], c: "KeyC" },
-        { q: "¿En qué año se publica la 1.ª parte del Quijote?", o: ["a) 1605", "b) 1610", "c) 1615", "d) 1620"], c: "KeyA" },
-        { q: "¿En qué año se publica la 2.ª parte del Quijote?", o: ["a) 1605", "b) 1610", "c) 1615", "d) 1620"], c: "KeyC" },
-        { q: "¿Cuál no es una obra de Cervantes?", o: ["a) Los trabajos de Persiles y Segismunda", "b) Viaje del Parnaso", "c) Las novelas ejemplares", "d) La vida es sueño"], c: "KeyD" },
-        { q: "¿Dónde sufre cautiverio Cervantes?", o: ["a) Estambul", "b) Argel", "c) Marraquech", "d) El Cairo"], c: "KeyB" },
-        { q: "¿De dónde es Dulcinea, la amada de don Quijote?", o: ["a) Del Toboso", "b) De Toledo", "c) De Belmonte", "d) Guadalajara"], c: "KeyA" }
+        { q: "¿Nombre del caballo de don Quijote?", o: ["a) Pegaso", "b) Babieca", "c) Rocinante", "d) Clavileño"], c: "KeyC" }
     ];
 
-    // --- ESTADO DEL JUEGO ---
-    const STATE_MENU = 0, STATE_PLAYING = 1, STATE_GAMEOVER = 2, STATE_VICTORY = 3, STATE_THE_END = 4, STATE_QUIZ = 5;
-    let currentState = STATE_MENU;
-    let level = 1, score = 0, lives = 3, usedFierabras = false;
-    let levelTimer = 0, lastBonos = { vidas: 0, tiempo: 0 };
-    let quizIndex = 0, currentQuiz = [], animTick = 0;
-    const keys = {};
-
-    const player = { x: 400, y: 530, speed: 7, frame: 0 };
-    const spears = [], projectiles = [], mills = [], explosions = [], heartsOnGround = [];
-    let sancho = { x: -120, y: 540, active: false, state: 'entering', timer: 0 };
-    let enemyDirection = 1, enemySpeed = 1.2, globalCooldown = 0;
-
-    function drawEntity(img, frame, x, y, scale) {
-        ctx.save(); ctx.translate(x, y);
-        ctx.drawImage(img, frame.x, frame.y, frame.w, frame.h, -(frame.w*scale)/2, -(frame.h*scale)/2, frame.w*scale, frame.h*scale);
-        ctx.restore();
+    function drawSprite(img, f, x, y, s) {
+        if(!img.complete) return;
+        ctx.drawImage(img, f.x, f.y, f.w, f.h, x - (f.w*s)/2, y - (f.h*s)/2, f.w*s, f.h*s);
     }
 
-    function startLevel(tL) {
-        level = tL; lives = 3; levelTimer = 0; usedFierabras = (tL < 3) ? false : usedFierabras;
-        mills.length = 0; projectiles.length = 0; spears.length = 0; explosions.length = 0; heartsOnGround.length = 0;
-        sancho.active = false;
-        
-        let rows = (level === 1) ? 3 : 2;
-        if (level === 3) {
-            mills.push({ x: 400, y: 100, alive: true, hp: 25, boss: true, state: 'walk', actionTimer: 0 });
-            rows = 2;
-        }
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < 7; c++) {
-                mills.push({ x: c * 100 + 100, y: r * 80 + (level === 3 ? 220 : 80), alive: true, hp: level, state: 'walk', actionTimer: 0 });
-            }
-        }
-        currentState = STATE_PLAYING;
-    }
-
-    function calculateScores() {
-        let bonoVidas = lives * 500;
-        let bonoTiempo = Math.max(0, 2000 - Math.floor(levelTimer / 10));
-        lastBonos = { vidas: bonoVidas, tiempo: bonoTiempo };
-        score += bonoVidas + bonoTiempo;
+    function startLevel(L) {
+        level = L; lives = 3; levelTimer = 0; mills.length = 0;
+        let rows = L === 1 ? 3 : 2;
+        if(L === 3) mills.push({x:400, y:100, hp:20, boss:true, s:'walk'});
+        for(let r=0; r<rows; r++) for(let c=0; c<7; c++) 
+            mills.push({x: c*100+100, y: r*80+(L===3?220:80), hp:L, s:'walk'});
+        currentState = 1;
     }
 
     function update() {
-        if (currentState !== STATE_PLAYING) return;
+        if(currentState !== 1) return;
         animTick++; levelTimer++;
 
-        if (keys['ArrowLeft'] && player.x > 50) { player.x -= player.speed; if (animTick % 10 === 0) player.frame = 1 - player.frame; }
-        if (keys['ArrowRight'] && player.x < 750) { player.x += player.speed; if (animTick % 10 === 0) player.frame = 1 - player.frame; }
+        if(keys['ArrowLeft'] && player.x > 50) { player.x -= 6; if(animTick%10===0) player.frame = 1-player.frame; }
+        if(keys['ArrowRight'] && player.x < 750) { player.x += 6; if(animTick%10===0) player.frame = 1-player.frame; }
 
-        // Lógica de Sancho
-        if (level >= 2 && !sancho.active && Math.random() < 0.003) { sancho.active = true; sancho.state = 'entering'; sancho.x = -120; }
-        if (sancho.active) {
-            if (sancho.state === 'entering') { sancho.x += 2; if (sancho.x >= 80) { sancho.state = 'throwing'; sancho.timer = 60; } }
-            else if (sancho.state === 'throwing') { 
-                sancho.timer--; 
-                if (sancho.timer === 30) heartsOnGround.push({ x: sancho.x + 20, y: sancho.y - 20, vy: -5, vx: 3, landed: false });
-                if (sancho.timer <= 0) sancho.state = 'leaving';
-            } else if (sancho.state === 'leaving') { sancho.x -= 2; if (sancho.x < -120) sancho.active = false; }
-        }
-
-        heartsOnGround.forEach((h, i) => {
-            if (!h.landed) { h.x += h.vx; h.y += h.vy; h.vy += 0.2; if (h.y >= 540) h.landed = true; }
-            if (Math.hypot(h.x - player.x, h.y - player.y) < 40) { lives = Math.min(lives + 1, 5); heartsOnGround.splice(i, 1); }
-        });
-
-        // Enemigos
         let edge = false;
         mills.forEach(m => {
-            if (!m.alive) return;
-            if (!m.boss) { m.x += enemySpeed * enemyDirection; if (m.x > 750 || m.x < 50) edge = true; }
-            if (globalCooldown <= 0 && Math.random() < (m.boss ? 0.04 : 0.005)) {
-                m.state = 'throw'; m.actionTimer = 30;
-                projectiles.push({ x: m.x, y: m.y, vy: 4, vx: m.boss ? (player.x - m.x)/100 : 0 });
-                globalCooldown = 40;
+            if(!m.hp) return;
+            if(!m.boss) { m.x += (1.5 + level*0.5) * enemyDir; if(m.x > 760 || m.x < 40) edge = true; }
+            if(cooldown <= 0 && Math.random() < 0.006) {
+                projectiles.push({x: m.x, y: m.y}); cooldown = 50;
             }
-            if (m.actionTimer > 0) { m.actionTimer--; if (m.actionTimer === 0) m.state = 'walk'; }
-            spears.forEach((s, si) => {
-                let hit = m.boss ? 80 : 40;
-                if (Math.abs(s.x - m.x) < hit && Math.abs(s.y - m.y) < hit) {
-                    m.hp--; spears.splice(si, 1);
-                    if (m.hp <= 0) { m.alive = false; score += 100; explosions.push({x: m.x, y: m.y, timer: 0}); }
+            spears.forEach((sp, i) => {
+                if(Math.abs(sp.x - m.x) < 40 && Math.abs(sp.y - m.y) < 50) {
+                    m.hp--; spears.splice(i,1);
+                    if(m.hp<=0) { score += 100; explosions.push({x:m.x, y:m.y, f:0}); }
                 }
             });
-            if (m.y > 510) currentState = STATE_GAMEOVER;
         });
-
-        if (edge) { enemyDirection *= -1; mills.forEach(m => { if(m.alive && !m.boss) m.y += 20; }); }
+        if(edge) { enemyDir *= -1; mills.forEach(m => { if(!m.boss) m.y += 20; }); }
 
         projectiles.forEach((p, i) => {
-            p.y += p.vy; p.x += p.vx;
-            if (Math.hypot(p.x - player.x, p.y - player.y) < 30) {
-                lives--; projectiles.splice(i, 1); explosions.push({x: player.x, y: player.y, timer: 0});
-                if (lives <= 0) { 
-                    if (level === 3 && !usedFierabras) { currentQuiz = quizBank.sort(() => 0.5 - Math.random()).slice(0, 3); quizIndex = 0; currentState = STATE_QUIZ; }
-                    else currentState = STATE_GAMEOVER;
+            p.y += 5;
+            if(Math.hypot(p.x - player.x, p.y - player.y) < 30) {
+                lives--; projectiles.splice(i,1);
+                if(lives<=0) {
+                    if(level===3 && !usedBalsamo) { currentState=5; curQuiz=quizBank.sort(()=>.5-Math.random()).slice(0,3); quizIdx=0; }
+                    else currentState=2;
                 }
             }
-            if (p.y > 600) projectiles.splice(i, 1);
         });
 
-        spears.forEach((s, i) => { s.y -= 8; if (s.y < -20) spears.splice(i, 1); });
-        explosions.forEach((e, i) => { e.timer++; if (e.timer >= 24) explosions.splice(i, 1); });
-        if (mills.filter(m => m.alive).length === 0) { calculateScores(); currentState = (level === 3) ? STATE_THE_END : STATE_VICTORY; }
+        spears.forEach((s, i) => { s.y -= 8; if(s.y < 0) spears.splice(i,1); });
+        explosions.forEach((e, i) => { if(animTick%6===0) e.f++; if(e.f>3) explosions.splice(i,1); });
+        if(mills.filter(m=>m.hp>0).length === 0) currentState = level===3 ? 4 : 3;
+        if(cooldown > 0) cooldown--;
     }
 
     function draw() {
-        ctx.fillStyle = "#fdf5e6"; ctx.fillRect(0, 0, 800, 600);
+        ctx.clearRect(0,0,800,600);
+        ctx.fillStyle = "#fdf5e6"; ctx.fillRect(0,0,800,600); // Fondo papel
 
-        if (currentState === STATE_QUIZ) {
+        if(currentState === 1) {
+            drawSprite(imgQuijote, PLAYER_FRAMES[player.frame], player.x, player.y, 0.25);
+            mills.forEach(m => {
+                if(m.hp <= 0) return;
+                let img = (level === 1 && !m.boss) ? imgQuijote : imgGigantes;
+                let frame = (level === 1 && !m.boss) ? MOLINO_FRAME : (animTick%20>10 ? GIGANTE_FRAMES.WALK1 : GIGANTE_FRAMES.WALK2);
+                drawSprite(img, frame, m.x, m.y, m.boss ? 0.6 : 0.22);
+            });
+            explosions.forEach(e => drawSprite(imgExplosiones, EXPLOSION_FRAMES[e.f], e.x, e.y, 0.5));
+            spears.forEach(s => { ctx.fillStyle = "#5d4037"; ctx.fillRect(s.x-2, s.y, 4, 30); });
+            projectiles.forEach(p => { ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, 7); ctx.fill(); });
+            
+            ctx.fillStyle = "#3e2723"; ctx.font = "bold 20px Georgia";
+            ctx.fillText(`Gloria: ${score}  Honor: ${"♥".repeat(lives)}`, 20, 40);
+        } else if(currentState === 5) {
             ctx.fillStyle = "rgba(0,0,0,0.9)"; ctx.fillRect(0,0,800,600);
             ctx.fillStyle = "white"; ctx.textAlign = "center";
-            ctx.font = "bold 28px Georgia"; ctx.fillText("EL BÁLSAMO DE FIERABRÁS", 400, 80);
-            drawEntity(imgSancho, SANCHO_FRAMES.BALSAMO, 400, 180, 0.6);
-            let q = currentQuiz[quizIndex];
-            ctx.font = "22px Georgia"; ctx.fillText(q.q, 400, 320);
-            q.o.forEach((opt, i) => ctx.fillText(opt, 400, 370 + (i * 35)));
-            ctx.font = "14px Georgia"; ctx.fillText("Usa teclas A, B, C o D para responder", 400, 550);
-        } else if (currentState === STATE_PLAYING) {
-            if (sancho.active) drawEntity(imgSancho, (sancho.state === 'throwing' ? SANCHO_FRAMES.GIVE : SANCHO_FRAMES.WAIT), sancho.x, sancho.y, 0.22);
-            heartsOnGround.forEach(h => drawEntity(imgSancho, (animTick % 20 > 10 ? SANCHO_FRAMES.HEART : SANCHO_FRAMES.HEART_ALT), h.x, h.y, 0.25));
-            drawEntity(imgQuijote, PLAYER_FRAMES[player.frame], player.x, player.y, 0.25);
-            mills.forEach(m => {
-                if (!m.alive) return;
-                let frame = GIGANTE_FRAMES.WALK1;
-                if (m.state === 'throw') frame = GIGANTE_FRAMES.THROW;
-                else if (m.boss && animTick % 100 < 20) frame = GIGANTE_FRAMES.BOSS_POSE;
-                else if (animTick % 20 > 10) frame = GIGANTE_FRAMES.WALK2;
-                let img = (level === 1 && !m.boss) ? imgQuijote : imgGigantes;
-                let fData = (level === 1 && !m.boss) ? MOLINO_FRAME : frame;
-                drawEntity(img, fData, m.x, m.y, m.boss ? 0.6 : 0.22);
-            });
-            explosions.forEach(e => drawEntity(imgExplosiones, EXPLOSION_FRAMES[Math.floor(e.timer/6)], e.x, e.y, 0.5));
-            spears.forEach(s => { ctx.fillStyle = "#8d6e63"; ctx.fillRect(s.x-2, s.y, 4, 30); });
-            projectiles.forEach(p => { ctx.fillStyle = "#424242"; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, 7); ctx.fill(); });
-            ctx.fillStyle = "#3e2723"; ctx.textAlign = "left"; ctx.font = "bold 20px Georgia";
-            ctx.fillText(`Gloria: ${score}  Honor: ${"♥".repeat(lives)}`, 20, 40);
-        } else if (currentState === STATE_VICTORY) {
-            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,800,600);
-            ctx.fillStyle = "white"; ctx.textAlign = "center";
-            ctx.font = "bold 30px Georgia"; ctx.fillText("¡GESTA COMPLETADA!", 400, 200);
-            ctx.font = "20px Georgia"; ctx.fillText(`Bono Honor: +${lastBonos.vidas} | Bono Presteza: +${lastBonos.tiempo}`, 400, 280);
-            ctx.fillStyle = "#ffd700"; ctx.fillText(`GLORIA TOTAL: ${score}`, 400, 350);
-            ctx.fillStyle = "white"; ctx.fillText("Haz clic para seguir cabalgando", 400, 450);
+            ctx.fillText("¿MERECES EL BÁLSAMO DE FIERABRÁS?", 400, 100);
+            let q = curQuiz[quizIdx];
+            ctx.fillText(q.q, 400, 300);
+            q.o.forEach((o, i) => ctx.fillText(o, 400, 350 + i*30));
         } else {
-            ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0,0,800,600);
-            ctx.fillStyle = "white"; ctx.textAlign = "center";
-            ctx.font = "30px Georgia";
-            let txt = (currentState === STATE_MENU) ? "DON QUIJOTE: EL CABALLERO DE LOS SPRITES" : (currentState === STATE_GAMEOVER) ? "GESTA INTERRUMPIDA" : "¡DULCINEA ESTÁ A SALVO!";
-            ctx.fillText(txt, 400, 300);
-            ctx.font = "20px Georgia"; ctx.fillText("Haz clic para continuar", 400, 360);
+            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,800,600);
+            ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "30px Georgia";
+            let t = ["MENÚ: CLIC PARA EMPEZAR", "", "GESTA INTERRUMPIDA", "¡NIVEL SUPERADO!", "¡VICTORIA FINAL!"][currentState];
+            ctx.fillText(t, 400, 300);
         }
         requestAnimationFrame(draw);
     }
 
     window.onkeydown = e => {
         keys[e.code] = true;
-        if (currentState === STATE_QUIZ) {
-            if (e.code === currentQuiz[quizIndex].c) { quizIndex++; if (quizIndex >= 3) { lives = 5; usedFierabras = true; currentState = STATE_PLAYING; } }
-            else if (["KeyA", "KeyB", "KeyC", "KeyD"].includes(e.code)) currentState = STATE_GAMEOVER;
+        if(currentState === 5) {
+            if(e.code === curQuiz[quizIdx].c) { quizIdx++; if(quizIdx>=3) { lives=3; usedBalsamo=true; currentState=1; }}
+            else if(["KeyA","KeyB","KeyC","KeyD"].includes(e.code)) currentState = 2;
         }
+        if(e.code === 'Space' && currentState === 1) spears.push({x: player.x, y: player.y-40});
     };
     window.onkeyup = e => keys[e.code] = false;
-    window.onkeypress = e => { if (e.code === 'Space' && currentState === STATE_PLAYING) spears.push({x: player.x, y: player.y-40}); };
-    canvas.onclick = () => {
-        if (currentState === STATE_MENU || currentState === STATE_VICTORY) startLevel(currentState === STATE_VICTORY ? level + 1 : 1);
-        else if (currentState === STATE_GAMEOVER || currentState === STATE_THE_END) location.reload();
+    canvas.onclick = () => { 
+        if(currentState === 0 || currentState === 3) startLevel(currentState===3?level+1:1);
+        if(currentState === 2 || currentState === 4) location.reload();
     };
 
+    setInterval(update, 1000/60);
     draw();
 </script>
 </body>
