@@ -1,4 +1,4 @@
-/** MOTOR DE JUEGO: NIVEL 1 (CON HALO BRILLANTE) **/
+/** MOTOR DE JUEGO: NIVEL 1 (FIX CARGA DE IMÁGENES) **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -6,11 +6,29 @@ let quijote = { x: 400, y: 530, vidas: 3 };
 let enemigos = [], proyectiles = [], lanzas = [], particulasPolvo = [], activo = false;
 let hDir = 1, velHorda = 0.8, tiempoRestante = 120, timerInterval;
 
-// Imágenes (Tus nombres originales)
-const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
-const imgM = new Image(); imgM.src = 'sprites_molino.png';
-const imgA = new Image(); imgA.src = 'sprites_aspas.png';
-const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+// --- SISTEMA DE PRECARGA ---
+let imagenesCargadas = 0;
+const totalImagenes = 4;
+
+function comprobarCarga() {
+    imagenesCargadas++;
+    if (imagenesCargadas === totalImagenes) {
+        console.log("Todas las imágenes listas. Iniciando bucle...");
+        spawnEnemigos();
+        loop();
+    }
+}
+
+const imgQ = new Image(); imgQ.src = 'sprites_quijote.png'; imgQ.onload = comprobarCarga;
+const imgM = new Image(); imgM.src = 'sprites_molino.png'; imgM.onload = comprobarCarga;
+const imgA = new Image(); imgA.src = 'sprites_aspas.png';   imgA.onload = comprobarCarga;
+const imgF = new Image(); imgF.src = 'sprites_rafaga.png';  imgF.onload = comprobarCarga;
+
+// Manejo de errores por si los nombres no coinciden
+imgQ.onerror = () => console.error("No se encuentra sprites_quijote.png");
+imgM.onerror = () => console.error("No se encuentra sprites_molino.png");
+imgA.onerror = () => console.error("No se encuentra sprites_aspas.png");
+imgF.onerror = () => console.error("No se encuentra sprites_rafaga.png");
 
 const teclas = {};
 window.onkeydown = (e) => {
@@ -38,7 +56,7 @@ function spawnEnemigos() {
 }
 
 function iniciar() {
-    Interfaz.puntuacion = 0;
+    if(typeof Interfaz !== 'undefined') Interfaz.puntuacion = 0;
     quijote.vidas = 3;
     tiempoRestante = 120;
     proyectiles = []; lanzas = [];
@@ -56,11 +74,14 @@ function iniciar() {
 function fin(victoria, msg) {
     activo = false;
     clearInterval(timerInterval);
-    Interfaz.mostrarMenuFinal(victoria ? "¡VICTORIA!" : "¡DERROTA!", msg, victoria, "nivel2", { vidas: quijote.vidas, tiempo: tiempoRestante });
+    if(typeof Interfaz !== 'undefined') {
+        Interfaz.mostrarMenuFinal(victoria ? "¡VICTORIA!" : "¡DERROTA!", msg, victoria, "nivel2", { vidas: quijote.vidas, tiempo: tiempoRestante });
+    }
 }
 
 function loop() {
-    Interfaz.dibujarEscenario(ctx);
+    // Dibujamos el escenario siempre (Cielo y Césped)
+    if(typeof Interfaz !== 'undefined') Interfaz.dibujarEscenario(ctx);
     
     // Polvareda
     if (particulasPolvo.length < 25) particulasPolvo.push({ x: Math.random()*800, y: 580, v: 0.4+Math.random()*0.6, op: 0.1+Math.random()*0.2 });
@@ -70,7 +91,6 @@ function loop() {
         if(p.y < 460) particulasPolvo.splice(i, 1);
     });
 
-    // --- LÓGICA DE ENEMIGOS Y HALO ---
     let bajar = false;
     enemigos.forEach(e => {
         if(activo) {
@@ -79,13 +99,12 @@ function loop() {
             e.rot += 0.04;
         }
 
-        // Dibujo Molino y Aspas
+        // Solo dibujamos si las imágenes cargaron
         ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
         ctx.save(); ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
         ctx.drawImage(imgA, -50, -50, 100, 100); ctx.restore();
 
         if(activo) {
-            // HALO BRILLANTE ANTES DE DISPARAR
             if (e.preparandoDisparo) {
                 e.timerBrillo++;
                 ctx.save();
@@ -109,10 +128,10 @@ function loop() {
             }
         }
     });
+
     if(bajar && activo) { hDir *= -1; enemigos.forEach(e => e.y += 20); }
 
     if(activo) {
-        // Movimiento Quijote
         if(teclas['ArrowLeft']) quijote.x -= 7;
         if(teclas['ArrowRight']) quijote.x += 7;
         quijote.x = Math.max(50, Math.min(750, quijote.x));
@@ -120,7 +139,6 @@ function loop() {
         let fx = (teclas['ArrowLeft'] || teclas['ArrowRight']) ? 0 : 480;
         ctx.drawImage(imgQ, fx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
 
-        // Lanzas
         lanzas.forEach((l, i) => {
             l.y -= 12;
             ctx.fillStyle = "#f1c40f"; ctx.fillRect(l.x - 2, l.y, 4, 25);
@@ -128,13 +146,28 @@ function loop() {
             enemigos.forEach((e, ei) => {
                 if(Math.abs(l.x - e.x) < 40 && Math.abs(l.y - e.y) < 40) {
                     enemigos.splice(ei, 1); lanzas.splice(i, 1);
-                    Interfaz.añadirPuntos(100);
+                    if(typeof Interfaz !== 'undefined') Interfaz.añadirPuntos(100);
                 }
             });
             if(l.y < 0) lanzas.splice(i, 1);
         });
 
-        // Ráfagas
         proyectiles.forEach((p, i) => {
             p.y += 4; p.size += 0.25;
             ctx.drawImage(imgF, p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+            if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
+                quijote.vidas--; proyectiles.splice(i, 1);
+                if(quijote.vidas <= 0) fin(false, "¡Has caído!");
+            }
+        });
+
+        if(enemigos.length === 0) fin(true, "¡Victorioso!");
+    } else {
+        ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(0,0,800,600);
+        ctx.fillStyle = "#f1c40f"; ctx.textAlign = "center"; ctx.font = "bold 30px 'Almendra'";
+        ctx.fillText("PULSA ESPACIO PARA LUCHAR", 400, 300);
+    }
+
+    if(typeof Interfaz !== 'undefined') Interfaz.dibujarHUD(ctx, quijote.vidas, tiempoRestante);
+    requestAnimationFrame(loop);
+}
