@@ -26,4 +26,7 @@ canvas { border: 15px ridge #5d4037; background: #87CEEB; box-shadow: 0 0 60px #
 #btn-accion {
     padding: 15px 30px; background: #27ae60; color: white; border: none;
     border-radius: 5px; font-size: 1.2rem; cursor: pointer; font-family: 'MedievalSharp';
+    transition: 0.3s;
 }
+
+#btn-accion:hover { background: #2ecc71; transform: scale(1.1); }
