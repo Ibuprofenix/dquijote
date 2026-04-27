@@ -1,151 +1,166 @@
-/** MOTOR DE JUEGO: RESTAURACIÓN DE ESTÉTICA Y MECÁNICAS **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const NIVEL = document.title.includes("Nivel 1") ? 1 : (document.title.includes("Nivel 2") ? 2 : 3);
 
-let quijote = { x: 400, y: 530, vidas: 3 };
-let enemigos = [], proyectiles = [], lanzas = [], particulasPolvo = [], activo = false;
-let hDir = 1, velHorda = 0.8, tiempoRestante = 120, timerInterval;
+// Aplicar fondo según nivel
+canvas.className = "bg-nivel" + NIVEL;
 
-// Imágenes
-const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
-const imgM = new Image(); imgM.src = 'sprites_molino.png';
-const imgA = new Image(); imgA.src = 'sprites_aspas.png';
-const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+// Variables de Juego
+let activo = false;
+let quijote = { x: 400, y: 530, vidas: 3, armaReforzada: false, timerArma: 0 };
+let sancho = { x: -150, activo: false, yaAparecio: false, estado: 'espera' };
+let boss = { x: 340, y: 15, vida: 100, vidaMax: 100, fase: 1, activo: (NIVEL === 3), dir: 1, frame: 2 };
+let enemigos = [], proyectiles = [], lanzas = [], trizas = [], ayudas = [];
+let hordaDir = 1, hordaY = (NIVEL === 3 ? 150 : 80), globalTimer = 0;
 
+// Teclado
 const teclas = {};
-window.onkeydown = (e) => {
+window.onkeydown = (e) => { 
     teclas[e.key] = true;
     if(e.key === " ") {
-        if(!activo && quijote.vidas > 0) iniciar();
-        else if(activo) lanzas.push({x: quijote.x, y: quijote.y - 30});
+        if(!activo) iniciar();
+        else disparar();
     }
 };
 window.onkeyup = (e) => teclas[e.key] = false;
 
-function spawnEnemigos() {
-    enemigos = [];
-    for(let f=0; f<3; f++) {
-        for(let c=0; c<8; c++) {
-            enemigos.push({ x: 100 + (c * 85), y: 80 + (f * 100), rot: Math.random() * Math.PI, t: 0 });
-        }
-    }
-}
+// Carga de Imágenes
+const imgQ = new Image(); imgQ.src = 'https://i.imgur.com/8X8X8X8.png'; // Quijote
+const imgG = new Image(); imgG.src = 'https://i.imgur.com/9Y9Y9Y9.png'; // Gigante/Boss
+const imgS = new Image(); imgS.src = 'https://i.imgur.com/7Z7Z7Z7.png'; // Sancho
+const imgR = new Image(); imgR.src = 'https://i.imgur.com/6W6W6W6.png'; // Roca/Proyectil
 
 function iniciar() {
-    if (window.Interfaz) Interfaz.puntuacion = 0;
-    quijote.vidas = 3;
-    tiempoRestante = 120;
-    proyectiles = []; lanzas = [];
-    spawnEnemigos();
-    activo = true;
-    if(timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-        if(activo) {
-            tiempoRestante--;
-            if(tiempoRestante <= 0) fin(false, "El tiempo ha expirado.");
+    enemigos = []; proyectiles = []; lanzas = []; trizas = []; ayudas = [];
+    quijote = { x: 400, y: 530, vidas: 3, armaReforzada: false, timerArma: 0 };
+    sancho = { x: -150, activo: false, yaAparecio: false, estado: 'espera' };
+    
+    if (NIVEL < 3) {
+        for(let f=0; f<3; f++) {
+            for(let c=0; c<8; c++) {
+                enemigos.push({ xRel: 100+(c*85), yRel: f*100, vida: (NIVEL === 2 ? 2 : 1), activo: true });
+            }
         }
-    }, 1000);
-}
-
-function fin(victoria, msg) {
-    activo = false;
-    clearInterval(timerInterval);
-    Interfaz.mostrarMenuFinal(victoria ? "¡VICTORIA!" : "¡DERROTA!", msg, victoria, "Nivel2", { vidas: quijote.vidas, tiempo: tiempoRestante });
-}
-
-function dibujarHUD() {
-    ctx.save();
-    // Pergamino de HUD
-    ctx.fillStyle = "rgba(62, 39, 35, 0.85)";
-    ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 2;
-    const x=15, y=15, w=180, h=45, r=10;
-    ctx.beginPath(); ctx.moveTo(x+r, y);
-    ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
-    ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    // Vidas (Iconos)
-    ctx.font = "bold 16px 'Almendra'"; ctx.fillStyle = "#f1c40f";
-    ctx.fillText("HIDALGO:", 30, 42);
-    for(let i=0; i<3; i++) {
-        ctx.font = "18px Arial";
-        ctx.fillStyle = i < quijote.vidas ? "#e74c3c" : "#2c3e50";
-        ctx.fillText(i < quijote.vidas ? "❤" : "💀", 115 + (i * 22), 43);
+    } else {
+        boss.vida = 100; boss.fase = 1;
+        generarFilaHorda(0);
     }
+    activo = true;
+}
 
-    // Timer
-    ctx.textAlign = "right"; ctx.font = "bold 20px 'MedievalSharp'";
-    ctx.fillStyle = tiempoRestante < 20 ? "#e74c3c" : "#f1c40f";
-    let m = Math.floor(tiempoRestante/60), s = tiempoRestante%60;
-    ctx.fillText(`TIEMPO: ${m}:${s<10?'0':''}${s}`, 770, 42);
-    ctx.restore();
+function generarFilaHorda(yRel) {
+    for (let c = 0; c < 8; c++) {
+        enemigos.push({ xRel: 100 + (c * 85), yRel: yRel, vida: 3, activo: true, timerAtaque: 0 });
+    }
+}
+
+function disparar() {
+    playSfx('lanza');
+    if (quijote.armaReforzada) {
+        lanzas.push({ x: quijote.x - 20, y: quijote.y }, { x: quijote.x + 20, y: quijote.y });
+    } else {
+        lanzas.push({ x: quijote.x, y: quijote.y });
+    }
 }
 
 function loop() {
     ctx.clearRect(0, 0, 800, 600);
-    
-    // Polvareda
-    if (particulasPolvo.length < 20) particulasPolvo.push({ x: Math.random()*800, y: 600, v: 0.5+Math.random(), op: 0.1+Math.random()*0.2 });
-    particulasPolvo.forEach((p, i) => {
-        p.y -= p.v; ctx.fillStyle = `rgba(210, 180, 140, ${p.op})`;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
-        if(p.y < 0) particulasPolvo.splice(i, 1);
-    });
+    globalTimer++;
 
-    enemigos.forEach(e => {
-        if(activo) e.rot += 0.04;
-        ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
-        ctx.save(); ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
-        ctx.drawImage(imgA, -50, -50, 100, 100); ctx.restore();
-    });
-
-    if(activo) {
-        let bajar = false;
-        enemigos.forEach(e => {
-            e.x += velHorda * hDir;
-            if(e.x > 750 || e.x < 50) bajar = true;
-            if(Math.random() < 0.005) proyectiles.push({ x: e.x, y: e.y, size: 15 });
-        });
-        if(bajar) { hDir *= -1; enemigos.forEach(e => e.y += 20); }
-
-        if(teclas['ArrowLeft']) quijote.x -= 7;
-        if(teclas['ArrowRight']) quijote.x += 7;
-        quijote.x = Math.max(50, Math.min(750, quijote.x));
-        let fx = (teclas['ArrowLeft'] || teclas['ArrowRight']) ? 0 : 480;
-        ctx.drawImage(imgQ, fx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
-
-        // Lanzas
-        lanzas.forEach((l, i) => {
-            l.y -= 10;
-            ctx.drawImage(imgQ, 480, 440, 480, 440, l.x - 15, l.y - 15, 30, 30);
-            enemigos.forEach((e, ei) => {
-                if(Math.abs(l.x - e.x) < 40 && Math.abs(l.y - e.y) < 40) {
-                    enemigos.splice(ei, 1); lanzas.splice(i, 1);
-                    Interfaz.añadirPuntos(100);
-                }
-            });
-        });
-
-        // Ráfagas con incremento de tamaño
-        proyectiles.forEach((p, i) => {
-            p.y += 4;
-            p.size += 0.25; // Crecimiento progresivo
-            ctx.drawImage(imgF, p.x - p.size/2, p.y - p.size/2, p.size, p.size);
-            if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
-                quijote.vidas--; proyectiles.splice(i, 1);
-                if(quijote.vidas <= 0) fin(false, "¡Has caído!");
-            }
-        });
-
-        if(enemigos.length === 0) fin(true, "¡Victorioso!");
+    if (!activo) {
+        Interfaz.mostrarMensaje(ctx, document.title.toUpperCase(), "Pulsa ESPACIO para comenzar");
     } else {
-        ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(0,0,800,600);
-        ctx.fillStyle = "#f1c40f"; ctx.textAlign = "center"; ctx.font = "30px Almendra";
-        ctx.fillText("PULSA ESPACIO PARA LUCHAR", 400, 300);
+        actualizar();
+        dibujar();
     }
-
-    dibujarHUD();
+    
+    Interfaz.dibujarHUD(ctx, quijote.vidas, (NIVEL === 3 ? boss : null));
     requestAnimationFrame(loop);
 }
-spawnEnemigos();
+
+function actualizar() {
+    // Movimiento Quijote
+    if (teclas['ArrowLeft'] || teclas['a']) quijote.x -= 7;
+    if (teclas['ArrowRight'] || teclas['d']) quijote.x += 7;
+    quijote.x = Math.max(50, Math.min(750, quijote.x));
+
+    // Lógica Sancho (Nivel 2 y 3)
+    if (NIVEL >= 2 && quijote.vidas === 1 && !sancho.yaAparecio) {
+        sancho.activo = true; sancho.yaAparecio = true; sancho.estado = 'entrando';
+    }
+    if (sancho.activo) {
+        if (sancho.estado === 'entrando') {
+            sancho.x += 3; if (sancho.x >= 100) {
+                sancho.estado = 'lanzando';
+                ayudas.push({ x: 150, y: quijote.y, tipo: 'vida', t: 300 });
+                setTimeout(() => sancho.estado = 'volviendo', 1000);
+            }
+        } else if (sancho.estado === 'volviendo') {
+            sancho.x -= 3; if (sancho.x < -150) sancho.activo = false;
+        }
+    }
+
+    // Boss (Solo Nivel 3)
+    if (NIVEL === 3) {
+        let vB = boss.fase === 2 ? 6 : 3.5;
+        boss.x += vB * boss.dir;
+        if (boss.x > 680 || boss.x < 20) boss.dir *= -1;
+        if (Math.random() < (boss.fase === 2 ? 0.03 : 0.01)) {
+            proyectiles.push({ x: boss.x + 55, y: boss.y + 100, v: 8, r: 40 });
+        }
+    }
+
+    // Horda / Enemigos
+    let bajar = false;
+    enemigos.forEach(e => {
+        if (!e.activo) return;
+        let xReal = e.xRel + (globalTimer * 0.5 % 100) * hordaDir; // Simplificado para el ejemplo
+        if (Math.random() < 0.005) proyectiles.push({ x: e.xRel, y: e.yRel + hordaY, v: 5, r: 20 });
+    });
+
+    // Lanzas y Colisiones
+    lanzas.forEach((l, i) => {
+        l.y -= 10;
+        if (NIVEL === 3 && l.y < boss.y + 120 && l.x > boss.x && l.x < boss.x + 110) {
+            boss.vida--; lanzas.splice(i, 1);
+            if (boss.vida <= 0) { activo = false; Interfaz.mostrarMensaje(ctx, "¡VICTORIA!", "El Gigante ha caído"); }
+        }
+        if (l.y < 0) lanzas.splice(i, 1);
+    });
+
+    // Proyectiles enemigos
+    proyectiles.forEach((p, i) => {
+        p.y += p.v;
+        if (Math.abs(p.x - quijote.x) < p.r && Math.abs(p.y - quijote.y) < p.r) {
+            quijote.vidas--; proyectiles.splice(i, 1);
+            if (quijote.vidas <= 0) location.reload();
+        }
+    });
+}
+
+function dibujar() {
+    // Dibujar Sancho
+    if (sancho.activo) {
+        ctx.drawImage(imgS, sancho.x, quijote.y - 50, 100, 100);
+    }
+
+    // Dibujar Boss
+    if (NIVEL === 3) {
+        ctx.save();
+        if (boss.fase === 2) ctx.filter = "hue-rotate(-50deg) brightness(1.2)";
+        ctx.drawImage(imgG, boss.frame * 1024, 0, 1024, 1300, boss.x, boss.y, 110, 140);
+        ctx.restore();
+    }
+
+    // Dibujar Quijote
+    ctx.drawImage(imgQ, (teclas['a'] || teclas['d'] ? 0 : 480), 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
+
+    // Dibujar Proyectiles
+    proyectiles.forEach(p => ctx.drawImage(imgR, p.x - p.r/2, p.y - p.r/2, p.r, p.r));
+    
+    // Dibujar Lanzas
+    ctx.fillStyle = quijote.armaReforzada ? "#f1c40f" : "#fff";
+    lanzas.forEach(l => ctx.fillRect(l.x - 2, l.y, 4, 15));
+}
+
 loop();
