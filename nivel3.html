@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Nivel 3: El Gigante Supremo</title>
+    <link rel="stylesheet" href="maestro.css">
+</head>
+<body class="nivel3">
+    <h1 class="game-header">EL DUELO FINAL</h1>
+    
+    <div id="escenario">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="resumenGesta"></div>
+        <button id="btnAccion"></button>
+    </div>
+
+    <div id="game-ui">
+        Usa las <b>Flechas</b> para moverte y <b>Espacio</b> para lanzar proyectiles.
+    </div>
+
+    <script src="gestionDatos.js"></script>
+    <script src="interfaz.js"></script>
+    <script src="motor3.js"></script>
+
+    <script>
+        window.onload = () => {
+            const canvasElement = document.getElementById('gameCanvas');
+            // La función configurarInicio debe estar en tu interfaz.js o gestionDatos.js
+            if (typeof configurarInicio === 'function' && typeof iniciar === 'function') {
+                configurarInicio(canvasElement, iniciar); 
+            } else {
+                // Inicio manual si no existe el configurador
+                iniciar();
+            }
+        };
+    </script>
+</body>
+</html>
