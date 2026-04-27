@@ -29,7 +29,7 @@ function enviarDatos(resultadoFinal, vidas, nivel) {
         body: JSON.stringify({ 
             nombre: nombreParaEnviar, 
             resultado: resultadoFinal, 
-            puntuacion: puntos, 
+            puntos: puntos, 
             vidas: vidas, 
             nivel: nivel 
         })
