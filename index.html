@@ -1,118 +1,225 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><title>Don Quijote Invaders</title>
-    <script src="motor.js"></script><script src="interfaz.js"></script>
+    <meta charset="UTF-8">
+    <title>Nivel 1: Los Molinos</title>
+    <link rel="stylesheet" href="maestro.css">
+    <script src="motor.js" defer></script>
+    <script src="interfaz.js" defer></script>
     <style>
-        body { margin: 0; background: #1a1a1a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        #registro-inicial { position: fixed; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 2000; color: white; font-family: Georgia; }
-        .form-caja { background: #3e2723; padding: 40px; border: 3px solid #f1c40f; border-radius: 15px; text-align: center; }
-        input { padding: 12px; font-size: 1.2rem; margin: 20px 0; border-radius: 5px; border: none; text-align: center; }
+        /* Estilos para el registro inicial */
+        #registro-inicial {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; justify-content: center;
+            align-items: center; z-index: 2000; color: white; font-family: 'Georgia', serif;
+        }
+        .form-caja {
+            background: #3e2723; padding: 30px; border: 3px solid #f1c40f;
+            border-radius: 15px; text-align: center; box-shadow: 0 0 20px rgba(241,196,15,0.3);
+        }
+        .form-caja input {
+            padding: 10px; font-size: 1.2rem; width: 80%; margin: 15px 0;
+            border-radius: 5px; border: none;
+        }
+        .btn-registro {
+            padding: 10px 25px; background: #f1c40f; color: #3e2723;
+            border: none; font-weight: bold; cursor: pointer; border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <div id="registro-inicial">
         <div class="form-caja">
-            <h2 style="color:#f1c40f">NOMBRE DEL CABALLERO</h2>
-            <input type="text" id="nombreUsuario" maxlength="15" placeholder="Tu nombre...">
-            <br><button onclick="iniciarSesion()" style="padding:10px 20px; cursor:pointer">ENTRAR</button>
+            <h2>IDENTIFÍCATE, CABALLERO</h2>
+            <p>Introduce tu nombre para registrar tus hazañas:</p>
+            <input type="text" id="nombreUsuario" placeholder="Tu nombre o alias..." maxlength="15">
+            <br>
+            <button class="btn-registro" onclick="iniciarSesion()">ENTRAR EN COMBATE</button>
         </div>
     </div>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
+    <h1 class="game-header">LOS MOLINOS DE CRIPTANA</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
     <script>
+        // --- CONFIGURACIÓN ---
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDQKeRoY27_L3cpX3qb3YvW1vMhHdpx2OHamZumKs4TqPgE93Smjzu6SPmY4RYEqiR/exec";
         const WEB_PUNTUACIONES = "https://educastur.sharepoint.com/sites/lospasosdelcid/SitePages/La_Mancha_Invaders.aspx?csf=1&web=1&e=GZTQm7&CID=c144ab21-57f7-4f02-a507-0e15c77abb06";
 
-        let usuarioActual = "", activo = false;
-        let quijote = { x: 400, y: 530, vidas: 3 };
-        let enemigos = [], proyectiles = [], lanzas = [], hDir = 1;
+        let usuarioActual = "";
 
+        // 1. Función de Registro (Se llama una sola vez al inicio)
         function iniciarSesion() {
-            const nom = document.getElementById('nombreUsuario').value.trim();
-            if(nom) { usuarioActual = nom; document.getElementById('registro-inicial').style.display='none'; }
+            const input = document.getElementById('nombreUsuario');
+            if (input.value.trim() !== "") {
+                usuarioActual = input.value.trim();
+                document.getElementById('registro-inicial').style.display = 'none';
+                // El juego ya puede empezar
+            } else {
+                alert("Debéis indicar un nombre para que las crónicas recuerden vuestro valor.");
+            }
         }
 
-        function init() {
-            Interfaz.puntuacion = 0; quijote.vidas = 3; quijote.x = 400;
-            proyectiles = []; lanzas = []; hDir = 1;
-            enemigos = [];
-            for(let f=0; f<3; f++) for(let c=0; c<8; c++) 
-                enemigos.push({ x: 100 + (c*85), y: 80 + (f*90), rot: Math.random()*6 });
-            SistemaPuntos.iniciarCronometro();
-            activo = true;
+        // 2. Función para ver puntuaciones (Envía datos y redirige)
+        function enviarYVerPuntuaciones() {
+            const puntos = window.Interfaz ? Interfaz.puntuacion : 0;
+            
+            if (confirm(`¿Deseas registrar tus ${puntos} puntos y ver la tabla de clasificación?`)) {
+                // Enviar datos de forma silenciosa (Beacon o Fetch)
+                fetch(`${WEB_APP_URL}?nombre=${encodeURIComponent(usuarioActual)}&puntos=${puntos}`, {
+                    mode: 'no-cors'
+                });
+                
+                // Redirigir a la web de SharePoint
+                window.location.href = WEB_PUNTUACIONES;
+            }
         }
 
-        function loop() {
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, 800, 600);
-            dibujarUI(ctx, quijote.vidas, Interfaz.puntuacion);
+        window.onload = () => {
+            const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+            let quijote = { x: 400, y: 530, vidas: 3 };
+            let enemigos = [], proyectiles = [], lanzas = [], trizas = [], activo = false;
+            let hDir = 1, velHorda = 0.8;
 
-            if (!activo && quijote.vidas > 0) {
-                ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "24px Georgia";
-                ctx.fillText("PULSA ESPACIO PARA COMBATIR", 400, 300);
-            } else if (activo) {
-                // Movimiento Quijote
-                if (teclado['ArrowLeft']) quijote.x -= 7;
-                if (teclado['ArrowRight']) quijote.x += 7;
-                quijote.x = Math.max(40, Math.min(760, quijote.x));
-                ctx.drawImage(imgQ, 480, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
-
-                // Movimiento Horda Enemiga
-                let bajar = false;
-                enemigos.forEach(e => {
-                    e.x += (1.0 * hDir);
-                    if(e.x > 750 || e.x < 50) bajar = true;
-                    e.rot += 0.04;
-                    ctx.drawImage(imgM, e.x - 40, e.y - 40, 80, 80);
-                    ctx.save(); ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
-                    ctx.drawImage(imgA, -45, -45, 90, 90); ctx.restore();
-                    if(Math.random() < 0.003) proyectiles.push({x: e.x, y: e.y});
-                });
-                if(bajar) { hDir *= -1; enemigos.forEach(e => e.y += 15); }
-
-                // Lanzas y Colisiones
-                lanzas.forEach((l, li) => {
-                    l.y -= 10; ctx.fillStyle = "#f1c40f"; ctx.fillRect(l.x, l.y, 4, 15);
-                    enemigos.forEach((e, ei) => {
-                        if(Math.abs(l.x - e.x) < 35 && Math.abs(l.y - e.y) < 35) {
-                            enemigos.splice(ei, 1); lanzas.splice(li, 1);
-                            Interfaz.añadirPuntos(100); playSfx('trizas');
-                        }
-                    });
-                });
-
-                // Proyectiles y Daño
-                proyectiles.forEach((p, pi) => {
-                    p.y += 4; ctx.drawImage(imgF, p.x-15, p.y-15, 30, 30);
-                    if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
-                        quijote.vidas--; playSfx('daño'); proyectiles.splice(pi, 1);
+            function posicionarEnemigos() {
+                enemigos = [];
+                for(let f=0; f<3; f++) {
+                    for(let c=0; c<8; c++) {
+                        enemigos.push({ 
+                            x: 100 + (c * 85), 
+                            y: 80 + (f * 100), 
+                            cargando: false, 
+                            timer: 0, 
+                            rot: Math.random() * Math.PI 
+                        });
                     }
-                });
-
-                if(enemigos.length === 0 || quijote.vidas <= 0) {
-                    activo = false;
-                    const fin = SistemaPuntos.calcularPuntosFinales(Interfaz.puntuacion, quijote.vidas);
-                    Interfaz.puntuacion = fin.total;
-                    registrarEnGoogle(usuarioActual, Interfaz.puntuacion, WEB_APP_URL);
-                    Interfaz.mostrarMenuFinal(enemigos.length === 0 ? "¡VICTORIA!" : "¡DERROTA!", `Tiempo: ${fin.segundos}s`, enemigos.length === 0);
-                    const b = document.createElement('button'); b.innerText = "VER RANKING";
-                    b.style = "padding:15px; margin-left:10px; cursor:pointer";
-                    b.onclick = () => location.href = WEB_PUNTUACIONES;
-                    document.getElementById('btns').appendChild(b);
                 }
             }
-            requestAnimationFrame(loop);
-        }
 
-        window.addEventListener('keydown', (e) => {
-            if(e.key === " " && usuarioActual) {
-                if(!activo && quijote.vidas > 0) init();
-                else if(activo) { lanzas.push({x: quijote.x, y: quijote.y}); playSfx('lanza'); }
+            posicionarEnemigos();
+
+            function crearTrizas(x, y) {
+                playSfx('trizas'); 
+                if (window.Interfaz) Interfaz.añadirPuntos(100);
+                for(let i=0; i<12; i++) {
+                    trizas.push({
+                        x: x, y: y,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        vida: 35
+                    });
+                }
             }
-        });
-        window.onload = () => { loop(); };
+
+            function init() {
+                if (window.Interfaz) Interfaz.puntuacion = 0;
+                proyectiles = []; lanzas = []; trizas = [];
+                quijote.vidas = 3; quijote.x = 400;
+                posicionarEnemigos();
+                activo = true;
+            }
+
+            function loop() {
+                ctx.clearRect(0, 0, 800, 600);
+                dibujarUI(ctx, quijote.vidas);
+
+                enemigos.forEach(e => {
+                    if (activo) e.rot += 0.04;
+                    ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
+                    ctx.save();
+                    ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
+                    ctx.drawImage(imgA, -50, -50, 100, 100);
+                    ctx.restore();
+                });
+
+                if (!activo && quijote.vidas > 0 && enemigos.length > 0) {
+                    mostrarMensaje(ctx, "PANTALLA 1: LOS MOLINOS", "Pulsa ESPACIO para combatir");
+                } else if (activo) {
+                    let bajar = false;
+                    enemigos.forEach(e => {
+                        e.x += velHorda * hDir;
+                        if (e.x > 760 || e.x < 40) bajar = true;
+                        if (!e.cargando && Math.random() < 0.005) e.cargando = true;
+                        if (e.cargando) {
+                            ctx.fillStyle = "rgba(255, 215, 0, 0.2)";
+                            ctx.beginPath(); ctx.arc(e.x, e.y - 10, 40, 0, Math.PI * 2); ctx.fill();
+                            if (++e.timer > 40) {
+                                proyectiles.push({ x: e.x, y: e.y, size: 20 });
+                                e.cargando = false; e.timer = 0;
+                            }
+                        }
+                    });
+
+                    if (bajar) { hDir *= -1; enemigos.forEach(e => e.y += 20); }
+
+                    // Movimiento Quijote
+                    if (teclado['ArrowLeft'] || teclado['a']) quijote.x -= 7;
+                    if (teclado['ArrowRight'] || teclado['d']) quijote.x += 7;
+                    quijote.x = Math.max(40, Math.min(760, quijote.x));
+
+                    // Colisiones y proyectiles
+                    proyectiles.forEach((p, i) => {
+                        p.y += 4; p.size += 0.4;
+                        ctx.drawImage(imgF, p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+                        if (Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
+                            quijote.vidas--; playSfx('daño'); proyectiles.splice(i, 1);
+                        }
+                    });
+
+                    lanzas.forEach((l, i) => {
+                        l.y -= 10;
+                        ctx.drawImage(imgQ, 480, 440, 480, 440, l.x - 15, l.y - 15, 30, 30);
+                        enemigos.forEach((e, ei) => {
+                            if (Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
+                                crearTrizas(e.x, e.y);
+                                enemigos.splice(ei, 1); lanzas.splice(i, 1);
+                            }
+                        });
+                    });
+
+                    let sx = (teclado['ArrowLeft'] || teclado['ArrowRight']) ? 0 : 480;
+                    ctx.drawImage(imgQ, sx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
+                    
+                    // FIN DE PARTIDA (Victoria o Derrota)
+                    if (enemigos.length === 0 || quijote.vidas <= 0) {
+                        activo = false;
+                        if (enemigos.length === 0) playSfx('victoria');
+                        
+                        const titulo = enemigos.length === 0 ? "¡NIVEL COMPLETADO!" : "¡HABÉIS CAÍDO!";
+                        const msg = enemigos.length === 0 ? "Has derrotado a los gigantes." : "Inténtalo de nuevo.";
+                        
+                        Interfaz.mostrarMenuFinal(titulo, msg, enemigos.length === 0, "Nivel2");
+                        
+                        // Añadimos el botón de "Ver Puntos" al menú final
+                        setTimeout(añadirBotonPuntuaciones, 100);
+                    }
+                }
+                requestAnimationFrame(loop);
+            }
+
+            function añadirBotonPuntuaciones() {
+                const menu = document.getElementById('menu-final');
+                if (menu && !document.getElementById('btn-ver-puntos')) {
+                    const btn = document.createElement('button');
+                    btn.id = 'btn-ver-puntos';
+                    btn.innerText = "REGISTRAR Y VER RANKING";
+                    btn.style = "margin-top: 15px; padding: 10px 20px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; font-weight: bold;";
+                    btn.onclick = enviarYVerPuntuaciones;
+                    menu.appendChild(btn);
+                }
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === " " && usuarioActual !== "") {
+                    if (!activo && quijote.vidas > 0) init();
+                    else if (activo) {
+                        lanzas.push({ x: quijote.x, y: quijote.y - 30 });
+                        playSfx('lanza');
+                    }
+                }
+            });
+            loop();
+        };
     </script>
 </body>
 </html>
