@@ -1,4 +1,4 @@
-/** * MOTOR DE JUEGO: NIVEL 2 - LA HORDA (VERSIÓN PURA) **/
+/** * MOTOR DE JUEGO: NIVEL 2 - LA HORDA (AJUSTE DE POTENCIA Y ANIMACIÓN) **/
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -10,8 +10,7 @@ let hDir = 1, velHorda = 1.3, tiempoRestante = 100, timerInterval;
 let gigantesDerrotados = 0;
 let premio = null; 
 let powerUpTimer = null;
-let faseAtaque = 0; // 0: caminar, 1: mano arriba (pre-disparo), 2: dispara/suelta
-let frameCaminar = 0;
+let frameGigante = 0; // Alternará solo entre 0 y 1 (usados para frames 3 y 4)
 
 const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
 const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
@@ -41,22 +40,19 @@ function iniciar() {
     if(timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
         if(activo) {
-            if (faseAtaque === 0) {
-                frameCaminar = (frameCaminar + 1) % 2;
-                if(Math.random() < 0.2) faseAtaque = 1; // Pasa a MANO ARRIBA
-            } else if (faseAtaque === 1) {
-                lanzarRocasHorda(); // Suelta roca
-                faseAtaque = 2; 
-            } else {
-                faseAtaque = 0; // Vuelve a caminar
-            }
-            if(faseAtaque === 0) tiempoRestante--;
+            frameGigante = (frameGigante + 1) % 2;
+            
+            // Lógica de disparo: Disparan cuando cambian de frame (coordinados)
+            if(Math.random() < 0.2) lanzarRocasHorda();
+            
+            tiempoRestante--;
+            if(tiempoRestante <= 0) fin(false, "¡Tiempo agotado!");
         }
-    }, 600);
+    }, 800);
 }
 
 function lanzarRocasHorda() {
-    enemigos.forEach(e => { if(Math.random() < 0.25) proyectiles.push({ x: e.x, y: e.y }); });
+    enemigos.forEach(e => { if(Math.random() < 0.2) proyectiles.push({ x: e.x, y: e.y }); });
 }
 
 function fin(victoria, msg) {
@@ -76,19 +72,15 @@ function loop() {
             e.x += velHorda * hDir;
             if(e.x > 760 || e.x < 40) bajar = true;
             
-            // MUERTE POR INVASIÓN (Si tocan la línea de defensa)
-            if(e.y >= 490) { 
-                fin(false, "¡Los gigantes han cruzado tus defensas!");
-                return;
-            }
+            // MUERTE POR INVASIÓN (Línea de Game Over)
+            if(e.y >= 490) { fin(false, "¡Los gigantes han invadido tu posición!"); return; }
         }
 
         ctx.save();
         if(e.hp === 1) ctx.filter = "brightness(40%)";
         if(imgG.complete) {
-            // Animación: Si faseAtaque es 1 (Pre-disparo), forzamos frames 3 o 4 (Mano arriba)
-            // Si es 0 o 2, usamos frames 1 o 2 (Caminando/Reposo)
-            let sx = (faseAtaque === 1) ? (2048 + (frameCaminar * 1024)) : (frameCaminar * 1024);
+            // USANDO SOLO FRAMES 3 Y 4 (2048 y 3072 en el spritesheet)
+            let sx = 2048 + (frameGigante * 1024);
             ctx.drawImage(imgG, sx, 0, 1024, 1300, e.x - 40, e.y - 50, 80, 100);
         }
         ctx.restore();
@@ -96,11 +88,10 @@ function loop() {
 
     if(bajar && activo) { hDir *= -1; enemigos.forEach(e => e.y += 35); }
 
-    // PREMIO RAYO (POWER-UP)
+    // PREMIO RAYO
     if(premio && premio.visible) {
         if(premio.y < 530) premio.y += 5;
-        ctx.fillStyle = "cyan";
-        ctx.beginPath();
+        ctx.fillStyle = "cyan"; ctx.beginPath();
         ctx.moveTo(premio.x, premio.y-20); ctx.lineTo(premio.x-10, premio.y);
         ctx.lineTo(premio.x+5, premio.y); ctx.lineTo(premio.x-5, premio.y+20);
         ctx.fill();
@@ -127,20 +118,17 @@ function loop() {
         }
         ctx.restore();
 
-        // LANZAS (NORMAL vs POWER-UP)
+        // LANZAS (EQUILIBRADAS)
         lanzas.forEach((l, i) => {
-            l.y -= l.super ? 25 : 12; 
+            l.y -= l.super ? 22 : 12; 
             ctx.fillStyle = l.super ? "cyan" : "#f1c40f";
-            ctx.fillRect(l.x - 2, l.y, l.super ? 6 : 4, 30);
+            ctx.fillRect(l.x - 2, l.y, 4, 30);
             
             enemigos.forEach((e, ei) => {
                 if(Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
-                    if(l.super) { 
-                        e.hp = 0; // Atraviesa y mata de 1 golpe
-                    } else { 
-                        e.hp--; 
-                        lanzas.splice(i, 1); 
-                    }
+                    // Daño: 2 si es super, 1 si es normal
+                    e.hp -= l.super ? 2 : 1; 
+                    lanzas.splice(i, 1); // SIEMPRE DESAPARECE AL IMPACTAR
                     
                     if(e.hp <= 0) {
                         enemigos.splice(ei, 1); gigantesDerrotados++;
