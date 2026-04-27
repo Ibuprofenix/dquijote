@@ -64,6 +64,17 @@
             function loop() {
                 ctx.clearRect(0, 0, 800, 600);
                 dibujarUI(ctx, quijote.vidas);
+            function enviarDatos() {
+        if (registroEnviado) return;
+        fetch(WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({ nombre: nombreJugador || "Anónimo", puntuacion: score, vidas: lives, nivel: level })
+        });
+        registroEnviado = true;
+    }
+
+    function verPuntuaciones() { window.open(WEB_PUNTUACIONES, '_blank'); }
 
                 // --- DIBUJADO DE ENEMIGOS (Tanto en inicio como en juego) ---
                 enemigos.forEach(e => {
