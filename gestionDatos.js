@@ -2,7 +2,7 @@
  * FUNCIÓN: Centraliza el registro, persistencia y envío de datos a Google Sheets.
  */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3ko-noJ0fYrXSDtgZf0ieX_JRrk2f_kZA7bPFecl0KBgzJFeCgc0TnvrwNUy4c5s/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyPaCBeE0ioovMSvQfOJCFOABD4KgeYZ-cgHacboL6T2EoIKohWA3k4KmgR3uXn4XA/exec";
 const WEB_PUNTUACIONES = "https://educastur.sharepoint.com/sites/lospasosdelcid/SitePages/La_Mancha_Invaders.aspx?csf=1&web=1&e=GZTQm7&CID=c144ab21-57f7-4f02-a507-0e15c77abb06";
 
 // Recuperamos el nombre si ya existe de sesiones o niveles anteriores
