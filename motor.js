@@ -1,193 +1,101 @@
 /**
- * MOTOR DE JUEGO: DON QUIJOTE VS GIGANTES
- * Versión: Servidor Optimizado (Puntos, Tiempo y Rutas)
+ * motor.js - Corazón del juego y sistema de cronómetro
  */
 
-// --- 1. CONFIGURACIÓN VISUAL Y NIVELES ---
 const AMBIENTES = {
-    "index": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
-    "Nivel1": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
-    "Nivel2": { sky: "linear-gradient(to bottom, #f093fb, #7b3f00)", nombre: "Atardecer en Montiel" },
-    "Nivel3": { sky: "linear-gradient(to bottom, #09203f, #000000)", nombre: "Duelo en el Castillo" }
+    "index": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)" },
+    "Nivel1": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)" },
+    "Nivel2": { sky: "linear-gradient(to bottom, #f093fb, #7b3f00)" }
 };
 
-window.addEventListener('load', () => {
-    const nombreArchivo = window.location.pathname.split("/").pop().replace(".html", "") || "index";
-    const canvas = document.getElementById('gameCanvas');
-    if (canvas && AMBIENTES[nombreArchivo]) {
-        canvas.style.background = AMBIENTES[nombreArchivo].sky;
-    }
-});
+// --- VARIABLES GLOBALES ---
+let tiempoGlobalInicio = 0;
+const teclado = {};
 
-// --- 2. SISTEMA DE PUNTUACIÓN Y TIEMPO ---
+// --- IMÁGENES (Mismo nivel que el HTML) ---
+const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
+const imgM = new Image(); imgM.src = 'sprites_molino.png';
+const imgA = new Image(); imgA.src = 'sprites_aspas.png';
+const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+
+// --- SISTEMA DE PUNTOS Y TIEMPO ---
 const SistemaPuntos = {
-    tiempoInicio: 0,
     puntosPorVida: 500,
     puntosBaseTiempo: 2000,
-
-    iniciarCronometro: () => {
-        SistemaPuntos.tiempoInicio = Date.now();
+    iniciarCronometro: () => { 
+        tiempoGlobalInicio = Date.now(); 
     },
-
-    calcularPuntosFinales: (vidasRestantes) => {
-        const tiempoTranscurrido = (Date.now() - SistemaPuntos.tiempoInicio) / 1000;
-        const bonoVidas = vidasRestantes * SistemaPuntos.puntosPorVida;
-        const bonoTiempo = Math.max(0, SistemaPuntos.puntosBaseTiempo - Math.floor(tiempoTranscurrido * 10));
-        
+    calcularPuntosFinales: (puntosActuales, vidas) => {
+        const segundos = (Date.now() - tiempoGlobalInicio) / 1000;
+        const bonoVidas = vidas * SistemaPuntos.puntosPorVida;
+        const bonoTiempo = Math.max(0, SistemaPuntos.puntosBaseTiempo - Math.floor(segundos * 10));
         return {
-            total: (window.Interfaz ? Interfaz.puntuacion : 0) + bonoVidas + bonoTiempo,
-            tiempo: tiempoTranscurrido.toFixed(1),
-            bonoVidas: bonoVidas,
-            bonoTiempo: bonoTiempo
+            total: puntosActuales + bonoVidas + bonoTiempo,
+            segundos: segundos.toFixed(1)
         };
     }
 };
 
-// --- 3. MOTOR DE AUDIO (Sintetizador Web Audio API) ---
+// --- MOTOR DE AUDIO ---
 function playSfx(tipo) {
-    const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
-    const ahora = ctxAudio.currentTime;
-    const gain = ctxAudio.createGain();
-    gain.connect(ctxAudio.destination);
+    const ctxA = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctxA.createOscillator();
+    const gain = ctxA.createGain();
+    osc.connect(gain); gain.connect(ctxA.destination);
+    const ahora = ctxA.currentTime;
 
     if (tipo === 'trizas') {
-        const bufferSize = ctxAudio.sampleRate * 0.2;
-        const buffer = ctxAudio.createBuffer(1, bufferSize, ctxAudio.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-        const noise = ctxAudio.createBufferSource();
-        noise.buffer = buffer;
-        const filter = ctxAudio.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, ahora);
-        filter.frequency.exponentialRampToValueAtTime(100, ahora + 0.2);
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.gain.setValueAtTime(0.3, ahora);
-        gain.gain.linearRampToValueAtTime(0, ahora + 0.2);
-        noise.start(); noise.stop(ahora + 0.2);
-    } else {
-        const osc = ctxAudio.createOscillator();
-        osc.connect(gain);
-        switch(tipo) {
-            case 'lanza':
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(600, ahora);
-                osc.frequency.exponentialRampToValueAtTime(100, ahora + 0.1);
-                gain.gain.setValueAtTime(0.2, ahora);
-                gain.gain.linearRampToValueAtTime(0, ahora + 0.1);
-                osc.start(); osc.stop(ahora + 0.1);
-                break;
-            case 'daño':
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, ahora);
-                osc.frequency.linearRampToValueAtTime(50, ahora + 0.2);
-                gain.gain.setValueAtTime(0.3, ahora);
-                gain.gain.linearRampToValueAtTime(0, ahora + 0.2);
-                osc.start(); osc.stop(ahora + 0.2);
-                break;
-            case 'victoria':
-                osc.type = 'square';
-                [440, 554, 659, 880].forEach((f, i) => {
-                    osc.frequency.setValueAtTime(f, ahora + i * 0.08);
-                });
-                gain.gain.setValueAtTime(0.1, ahora);
-                gain.gain.linearRampToValueAtTime(0, ahora + 0.4);
-                osc.start(); osc.stop(ahora + 0.4);
-                break;
-        }
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, ahora);
+        gain.gain.exponentialRampToValueAtTime(0.01, ahora + 0.2);
+    } else if (tipo === 'lanza') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600, ahora);
+        osc.frequency.exponentialRampToValueAtTime(100, ahora + 0.1);
+    } else if (tipo === 'daño') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, ahora);
+    } else if (tipo === 'victoria') {
+        osc.frequency.setValueAtTime(440, ahora);
+        osc.frequency.exponentialRampToValueAtTime(880, ahora + 0.3);
     }
+    osc.start(); osc.stop(ahora + 0.2);
 }
 
-// --- 4. GESTIÓN DE ENTRADA ---
-const teclado = {};
-window.addEventListener('keydown', (e) => { teclado[e.key] = true; });
-window.addEventListener('keyup', (e) => { teclado[e.key] = false; });
-
-// --- 5. AMBIENTE: POLVAREDA ---
-let particulasPolvo = [];
-function dibujarPolvareda(ctx) {
-    if (particulasPolvo.length < 25) {
-        particulasPolvo.push({
-            x: Math.random() * 800,
-            y: 600,
-            v: 0.3 + Math.random() * 0.8,
-            op: 0.1 + Math.random() * 0.3,
-            size: 1 + Math.random() * 2
-        });
-    }
-    ctx.save();
-    particulasPolvo.forEach((p, i) => {
-        p.y -= p.v;
-        p.x += Math.sin(p.y / 30) * 0.5;
-        ctx.fillStyle = `rgba(210, 180, 140, ${p.op})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        if (p.y < -10) particulasPolvo.splice(i, 1);
-    });
-    ctx.restore();
-}
-
-// --- 6. INTERFAZ DE USUARIO (UI) ---
+// --- UI Y DIBUJO ---
 function dibujarUI(ctx, vidas) {
     ctx.save();
-    dibujarPolvareda(ctx);
-    
-    // Caja Vidas
-    ctx.fillStyle = "rgba(62, 39, 35, 0.85)"; 
+    // Vidas
+    ctx.fillStyle = "rgba(62, 39, 35, 0.85)";
     ctx.strokeStyle = "#f1c40f";
     ctx.lineWidth = 2;
     dibujarRectRedondeado(ctx, 15, 15, 170, 40, 10);
     ctx.fill(); ctx.stroke();
-    ctx.font = "bold 16px 'Georgia', serif";
     ctx.fillStyle = "#f1c40f";
+    ctx.font = "bold 16px Georgia";
     ctx.fillText("HIDALGO:", 30, 41);
     for(let i=0; i<3; i++) {
-        ctx.font = "18px Arial";
         ctx.fillStyle = i < vidas ? "#e74c3c" : "#2c3e50";
         ctx.fillText(i < vidas ? "❤" : "💀", 120 + (i * 22), 41);
     }
 
-    // Caja Tiempo
-    const tiempo = SistemaPuntos.tiempoInicio > 0 ? ((Date.now() - SistemaPuntos.tiempoInicio) / 1000).toFixed(1) : "0.0";
-    dibujarRectRedondeado(ctx, 650, 15, 130, 40, 10);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#f1c40f";
-    ctx.fillText(`TIEMPO: ${tiempo}s`, 665, 41);
-    
-    ctx.restore();
-}
-
-function mostrarMensaje(ctx, titulo, subtitulo) {
-    ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-    ctx.fillRect(0, 0, 800, 600);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#f1c40f";
-    ctx.font = "bold 45px 'Georgia', serif";
-    ctx.fillText(titulo, 400, 280);
-    ctx.font = "22px 'Georgia', serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(subtitulo, 400, 330);
+    // Tiempo
+    if (tiempoGlobalInicio > 0) {
+        const s = ((Date.now() - tiempoGlobalInicio) / 1000).toFixed(1);
+        dibujarRectRedondeado(ctx, 650, 15, 130, 40, 10);
+        ctx.fillStyle = "rgba(62, 39, 35, 0.85)"; ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#f1c40f";
+        ctx.fillText(`TIEMPO: ${s}s`, 665, 41);
+    }
     ctx.restore();
 }
 
 function dibujarRectRedondeado(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+    ctx.beginPath(); ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
 }
 
-// --- 7. IMÁGENES (Sin prefijo de carpeta) ---
-const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
-const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
-const imgR = new Image(); imgR.src = 'sprites_roca.png';
-const imgM = new Image(); imgM.src = 'sprites_molino.png';
-const imgA = new Image(); imgA.src = 'sprites_aspas.png';
-const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+window.addEventListener('keydown', (e) => { teclado[e.key] = true; });
+window.addEventListener('keyup', (e) => { teclado[e.key] = false; });
 const imgS = new Image(); imgS.src = 'sprites_sancho.png';
