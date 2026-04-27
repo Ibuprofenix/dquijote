@@ -1,0 +1,58 @@
+/* MAESTRO.CSS - Estética Épica Manchega */
+#btn-accion:hover {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Almendra:wght@700&display=swap');
+
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: #0d0d0d;
+    margin: 0;
+    padding: 0;
+    /* CENTRADO PERFECTO */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center;
+    min-height: 100vh; /* Obliga al cuerpo a medir toda la pantalla */
+    font-family: 'Almendra', serif;
+    color: #f1c40f;
+}
+
+.game-header {
+    text-shadow: 3px 3px 5px #000;
+    margin: 0 0 20px 0;
+    letter-spacing: 3px;
+    font-size: 2.5rem;
+    text-transform: uppercase;
+}
+
+canvas {
+    /* Marco de madera noble */
+    border: 15px ridge #5d4037 !important;
+    box-shadow: 0 0 60px rgba(0,0,0,0.9), inset 0 0 100px rgba(0,0,0,0.4);
+    cursor: crosshair;
+    
+    /* Fondo inicial (evita que se vea vacío antes de cargar) */
+    background: #87CEEB; 
+    
+    /* Suavizado para los cambios de cielo del motor.js */
+    transition: background 2s ease-in-out;
+    
+    /* Asegura que el canvas no se estire raro */
+    max-width: 95vw;
+    max-height: 85vh;
+}
+
+/* Efecto opcional: Pulso sutil al marco del juego */
+canvas:hover {
+    border-color: #6d4c41 !important;
+    box-shadow: 0 0 80px rgba(241, 196, 15, 0.2);
+}

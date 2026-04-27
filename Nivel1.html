@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Nivel 1: Los Molinos</title>
+    <link rel="stylesheet" href="maestro.css">
+    <script src="motor.js" defer></script>
+    <script src="interfaz.js" defer></script>
+</head>
+<body>
+    <h1 class="game-header">LOS MOLINOS DE CRIPTANA</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <script>
+        window.onload = () => {
+            const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+            let quijote = { x: 400, y: 530, vidas: 3 };
+            let enemigos = [], proyectiles = [], lanzas = [], trizas = [], activo = false;
+            let hDir = 1, velHorda = 0.8;
+
+            // --- FUNCIÓN PARA POSICIONAR MOLINOS ---
+            function posicionarEnemigos() {
+                enemigos = [];
+                for(let f=0; f<3; f++) {
+                    for(let c=0; c<8; c++) {
+                        enemigos.push({ 
+                            x: 100 + (c * 85), 
+                            y: 80 + (f * 100), 
+                            cargando: false, 
+                            timer: 0, 
+                            rot: Math.random() * Math.PI 
+                        });
+                    }
+                }
+            }
+
+            // Llamamos a la función nada más cargar para que se vean bien colocados al inicio
+            posicionarEnemigos();
+
+            function crearTrizas(x, y) {
+                playSfx('trizas'); 
+                if (window.Interfaz) Interfaz.añadirPuntos(100);
+                for(let i=0; i<12; i++) {
+                    trizas.push({
+                        x: x, y: y,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        vida: 35
+                    });
+                }
+            }
+
+            function init() {
+                if (window.Interfaz) Interfaz.puntuacion = 0;
+                proyectiles = []; lanzas = []; trizas = [];
+                quijote.vidas = 3; quijote.x = 400;
+                posicionarEnemigos(); // Reiniciamos posiciones al empezar
+                activo = true;
+            }
+
+            function loop() {
+                ctx.clearRect(0, 0, 800, 600);
+                dibujarUI(ctx, quijote.vidas);
+
+                // --- DIBUJADO DE ENEMIGOS (Tanto en inicio como en juego) ---
+                enemigos.forEach(e => {
+                    if (activo) e.rot += 0.04; // Solo rotan si el juego empezó
+                    
+                    ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
+                    ctx.save();
+                    ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
+                    ctx.drawImage(imgA, -50, -50, 100, 100);
+                    ctx.restore();
+                });
+
+                if (!activo && quijote.vidas > 0 && enemigos.length > 0) {
+                    mostrarMensaje(ctx, "PANTALLA 1: LOS MOLINOS", "Pulsa ESPACIO para combatir");
+                } else if (activo) {
+                    // Lógica de movimiento de horda
+                    let bajar = false;
+                    enemigos.forEach(e => {
+                        e.x += velHorda * hDir;
+                        if (e.x > 760 || e.x < 40) bajar = true;
+
+                        if (!e.cargando && Math.random() < 0.005) e.cargando = true;
+                        if (e.cargando) {
+                            ctx.fillStyle = "rgba(255, 215, 0, 0.2)";
+                            ctx.beginPath(); ctx.arc(e.x, e.y - 10, 40, 0, Math.PI * 2); ctx.fill();
+                            if (++e.timer > 40) {
+                                proyectiles.push({ x: e.x, y: e.y, size: 20 });
+                                e.cargando = false; e.timer = 0;
+                            }
+                        }
+
+                        if (e.y > 520) {
+                            activo = false;
+                            Interfaz.mostrarMenuFinal("¡DERROTA!", "Los molinos te han aplastado.", false);
+                        }
+                    });
+
+                    if (bajar) { hDir *= -1; enemigos.forEach(e => e.y += 20); }
+
+                    // Quijote
+                    if (teclado['ArrowLeft'] || teclado['a']) quijote.x -= 7;
+                    if (teclado['ArrowRight'] || teclado['d']) quijote.x += 7;
+                    quijote.x = Math.max(40, Math.min(760, quijote.x));
+
+                    // Lanzas y proyectiles (misma lógica que antes)
+                    proyectiles.forEach((p, i) => {
+                        p.y += 4; p.size += 0.4;
+                        ctx.drawImage(imgF, p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+                        if (Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
+                            quijote.vidas--; playSfx('daño'); proyectiles.splice(i, 1);
+                        }
+                    });
+
+                    lanzas.forEach((l, i) => {
+                        l.y -= 10;
+                        ctx.drawImage(imgQ, 480, 440, 480, 440, l.x - 15, l.y - 15, 30, 30);
+                        enemigos.forEach((e, ei) => {
+                            if (Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
+                                crearTrizas(e.x, e.y);
+                                enemigos.splice(ei, 1); lanzas.splice(i, 1);
+                            }
+                        });
+                    });
+
+                    // Dibujar Caballero
+                    let sx = (teclado['ArrowLeft'] || teclado['ArrowRight']) ? 0 : 480;
+                    ctx.drawImage(imgQ, sx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
+                    
+                    // Condición Victoria
+                    if (enemigos.length === 0) {
+                        activo = false;
+                        playSfx('victoria');
+                        Interfaz.mostrarMenuFinal("¡NIVEL COMPLETADO!", "Has derrotado a los gigantes.", true, "Nivel2");
+                    }
+                    
+                    // Condición Derrota
+                    if (quijote.vidas <= 0) {
+                        activo = false;
+                        Interfaz.mostrarMenuFinal("¡HABÉIS CAÍDO!", "Inténtalo de nuevo, caballero.", false);
+                    }
+                }
+                
+                requestAnimationFrame(loop);
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === " ") {
+                    if (!activo && quijote.vidas > 0) init();
+                    else if (activo) {
+                        lanzas.push({ x: quijote.x, y: quijote.y - 30 });
+                        playSfx('lanza');
+                    }
+                }
+            });
+            loop();
+        };
+    </script>
+</body>
+</html>
