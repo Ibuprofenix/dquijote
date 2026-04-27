@@ -1,5 +1,5 @@
-/** * MOTOR DE JUEGO: NIVEL 2 (LA HORDA) - VERSIÓN ANTI-PANTALLAZO AZUL
- * Asegúrate de que este archivo se llame: motor2.js
+/** * MOTOR DE JUEGO: NIVEL 2 (LA HORDA) - VERSIÓN DE ARRANQUE FORZADO
+ * Este motor arranca incluso si GitHub tarda en entregar las imágenes.
  **/
 
 const canvas = document.getElementById('gameCanvas');
@@ -11,43 +11,21 @@ let sancho = { x: -100, y: 530, activo: false, yaAparecio: false, entregado: fal
 let enemigos = [], proyectiles = [], lanzas = [], activo = false;
 let hDir = 1, velHorda = 1.2, tiempoRestante = 100, timerInterval;
 
-// --- SISTEMA DE PRECARGA CRÍTICA ---
-let imagenesCargadas = 0;
-const totalImagenes = 5;
-const nombresImagenes = [
-    'sprites_quijote.png',
-    'sprites_gigantes.png',
-    'sprites_sancho.png',
-    'sprites_roca.png',
-    'sprites_vida.png'
-];
+// --- CARGA DE IMÁGENES ---
+const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
+const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
+const imgS = new Image(); imgS.src = 'sprites_sancho.png';
+const imgR = new Image(); imgR.src = 'sprites_roca.png';
+const imgV = new Image(); imgV.src = 'sprites_vida.png';
 
-const imgQ = new Image();
-const imgG = new Image();
-const imgS = new Image();
-const imgR = new Image();
-const imgV = new Image();
-
-function verificarCarga() {
-    imagenesCargadas++;
-    console.log(`Cargando imagen ${imagenesCargadas}/${totalImagenes}...`);
-    if (imagenesCargadas === totalImagenes) {
-        console.log("Éxito: Todas las imágenes cargadas. Iniciando Nivel 2.");
-        spawnEnemigos();
-        requestAnimationFrame(loop);
-    }
-}
-
-// Configuración de rutas y eventos de carga
-imgQ.onload = verificarCarga; imgQ.src = nombresImagenes[0];
-imgG.onload = verificarCarga; imgG.src = nombresImagenes[1];
-imgS.onload = verificarCarga; imgS.src = nombresImagenes[2];
-imgR.onload = verificarCarga; imgR.src = nombresImagenes[3];
-imgV.onload = verificarCarga; imgV.src = nombresImagenes[4];
-
-// Manejo de errores (si una imagen falla, te avisará en la consola F12)
-imgQ.onerror = () => console.error("Error cargando Quijote. Revisa el nombre del archivo.");
-imgG.onerror = () => console.error("Error cargando Gigantes. Revisa el nombre del archivo.");
+// Teclas
+const teclas = {};
+window.addEventListener('keydown', (e) => {
+    teclas[e.key] = true;
+    if(e.key === " " && !activo && quijote.vidas > 0) iniciar();
+    if(e.key === " " && activo) lanzas.push({x: quijote.x, y: quijote.y - 30});
+});
+window.addEventListener('keyup', (e) => teclas[e.key] = false);
 
 function spawnEnemigos() {
     enemigos = [];
@@ -84,39 +62,29 @@ function fin(victoria, msg) {
 }
 
 function loop() {
-    // Solo dibujamos si Interfaz está cargado
+    // 1. DIBUJAR FONDO (Esto evita que se quede en azul)
     if(typeof Interfaz !== 'undefined') {
         Interfaz.dibujarEscenario(ctx);
     } else {
-        // Fondo de emergencia si falla interfaz.js
         ctx.fillStyle = "#87CEEB"; ctx.fillRect(0,0,800,600);
     }
-    
-    // Lógica Sancho Panza (Ayuda al hidalgo)
-    if (quijote.vidas === 1 && !sancho.yaAparecio) {
-        sancho.activo = true;
-        sancho.yaAparecio = true;
-    }
 
+    // 2. LÓGICA DE SANCHO
+    if (quijote.vidas === 1 && !sancho.yaAparecio) { sancho.activo = true; sancho.yaAparecio = true; }
     if (sancho.activo) {
-        if (!sancho.entregado) {
-            sancho.x += 3;
-            if (sancho.x > 150) sancho.entregado = true;
-        } else {
-            sancho.x -= 3;
-            if (sancho.x < -100) sancho.activo = false;
+        if (!sancho.entregado) { sancho.x += 3; if (sancho.x > 150) sancho.entregado = true; }
+        else { sancho.x -= 3; if (sancho.x < -100) sancho.activo = false; }
+        
+        if(imgS.complete && imgS.naturalWidth !== 0) {
+            ctx.drawImage(imgS, 0, 0, 1024, 1024, sancho.x, 480, 100, 100);
         }
-        ctx.drawImage(imgS, 0, 0, 1024, 1024, sancho.x, 480, 100, 100);
         if (sancho.entregado && sancho.x > 0) {
-            ctx.drawImage(imgV, 150, 530, 40, 40);
-            if (Math.abs(quijote.x - 150) < 40) { 
-                quijote.vidas = 3;
-                sancho.entregado = false;
-            }
+            if(imgV.complete) ctx.drawImage(imgV, 150, 530, 40, 40);
+            if (Math.abs(quijote.x - 150) < 40) { quijote.vidas = 3; sancho.entregado = false; }
         }
     }
 
-    // Lógica de la Horda de Gigantes
+    // 3. LÓGICA DE GIGANTES
     let bajar = false;
     enemigos.forEach(e => {
         if(activo) {
@@ -124,21 +92,28 @@ function loop() {
             if(e.x > 750 || e.x < 50) bajar = true;
             if(Math.random() < 0.003) proyectiles.push({ x: e.x, y: e.y });
         }
-        // Renderizado del Gigante
-        ctx.drawImage(imgG, 2048, 0, 1024, 1300, e.x - 40, e.y - 50, 80, 100);
+        // Si la imagen no está lista, dibuja un círculo naranja (gigante provisional)
+        if(imgG.complete && imgG.naturalWidth !== 0) {
+            ctx.drawImage(imgG, 2048, 0, 1024, 1300, e.x - 40, e.y - 50, 80, 100);
+        } else {
+            ctx.fillStyle = "orange"; ctx.beginPath(); ctx.arc(e.x, e.y, 25, 0, Math.PI*2); ctx.fill();
+        }
     });
-
     if(bajar && activo) { hDir *= -1; enemigos.forEach(e => e.y += 25); }
 
+    // 4. QUIJOTE Y COMBATE
     if(activo) {
         if(teclas['ArrowLeft']) quijote.x -= 8;
         if(teclas['ArrowRight']) quijote.x += 8;
         quijote.x = Math.max(50, Math.min(750, quijote.x));
         
-        let fx = (teclas['ArrowLeft'] || teclas['ArrowRight']) ? 0 : 480;
-        ctx.drawImage(imgQ, fx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
+        if(imgQ.complete && imgQ.naturalWidth !== 0) {
+            let fx = (teclas['ArrowLeft'] || teclas['ArrowRight']) ? 0 : 480;
+            ctx.drawImage(imgQ, fx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
+        } else {
+            ctx.fillStyle = "white"; ctx.fillRect(quijote.x-20, quijote.y-20, 40, 40);
+        }
 
-        // Lanzas del Quijote
         lanzas.forEach((l, i) => {
             l.y -= 12;
             ctx.fillStyle = "#f1c40f"; ctx.fillRect(l.x - 2, l.y, 4, 25);
@@ -152,10 +127,13 @@ function loop() {
             if(l.y < 0) lanzas.splice(i, 1);
         });
 
-        // Proyectiles de los Gigantes (Rocas)
         proyectiles.forEach((p, i) => {
             p.y += 5;
-            ctx.drawImage(imgR, p.x - 15, p.y - 15, 30, 30);
+            if(imgR.complete && imgR.naturalWidth !== 0) {
+                ctx.drawImage(imgR, p.x - 15, p.y - 15, 30, 30);
+            } else {
+                ctx.fillStyle = "grey"; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.fill();
+            }
             if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
                 quijote.vidas--; proyectiles.splice(i, 1);
                 if(quijote.vidas <= 0) fin(false, "¡Los gigantes te han derrotado!");
@@ -163,22 +141,17 @@ function loop() {
             if(p.y > 600) proyectiles.splice(i, 1);
         });
 
-        if(enemigos.length === 0) fin(true, "¡Camino despejado para el caballero!");
+        if(enemigos.length === 0) fin(true, "¡Camino despejado!");
     } else {
-        // Pantalla de pausa inicial
         ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(0,0,800,600);
         ctx.fillStyle = "#f1c40f"; ctx.textAlign = "center"; ctx.font = "bold 30px 'Almendra'";
-        ctx.fillText("PULSA ESPACIO PARA ENFRENTAR LA HORDA", 400, 300);
+        ctx.fillText("PULSA ESPACIO PARA LUCHAR", 400, 300);
     }
 
-    if(typeof Interfaz !== 'undefined') {
-        Interfaz.dibujarHUD(ctx, quijote.vidas, tiempoRestante);
-    }
-    
+    if(typeof Interfaz !== 'undefined') Interfaz.dibujarHUD(ctx, quijote.vidas, tiempoRestante);
     requestAnimationFrame(loop);
 }
 
-// Control de teclas global
-const teclas = {};
-window.addEventListener('keydown', (e) => teclas[e.key] = true);
-window.addEventListener('keyup', (e) => teclas[e.key] = false);
+// Arrancamos el bucle inmediatamente
+spawnEnemigos();
+requestAnimationFrame(loop);
