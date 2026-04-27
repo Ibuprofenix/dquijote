@@ -159,10 +159,10 @@ function dibujarRectRedondeado(ctx, x, y, w, h, r) {
 }
 
 // Imágenes Globales
-const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
-const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
-const imgR = new Image(); imgR.src = 'sprites_roca.png';
-const imgM = new Image(); imgM.src = 'sprites_molino.png';
-const imgA = new Image(); imgA.src = 'sprites_aspas.png';
-const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+const imgQ = new Image(); imgQ.src = 'img/sprites_quijote.png';
+const imgG = new Image(); imgG.src = 'img/sprites_gigantes.png';
+const imgR = new Image(); imgR.src = 'img/sprites_roca.png';
+const imgM = new Image(); imgM.src = 'img/sprites_molino.png';
+const imgA = new Image(); imgA.src = 'img/sprites_aspas.png';
+const imgF = new Image(); imgF.src = 'img/sprites_rafaga.png';
 const imgS = new Image(); imgS.src = 'img/sprites_sancho.png';
