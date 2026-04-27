@@ -108,7 +108,7 @@ function fin(victoria, msg) {
         } else {
             btn.innerText = "VER CLASIFICACIÓN";
             btn.style.backgroundColor = "#8d6e63";
-            btn.onclick = () => window.location.href = "ranking.html";
+            btn.onclick = () => window.location.href = "https://educastur.sharepoint.com/sites/lospasosdelcid/SitePages/La_Mancha_Invaders.aspx?csf=1&web=1&e=GZTQm7&CID=c144ab21-57f7-4f02-a507-0e15c77abb06";
         }
     }
 }
