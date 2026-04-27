@@ -1,30 +1,37 @@
 const Interfaz = {
-    puntuacion: 0,
-    añadirPuntos: function(pts) { this.puntuacion += pts; },
-    mostrarMenuFinal: function(titulo, mensaje, victoria, siguienteNivel, stats) {
-        const contenedor = document.getElementById('escenario');
-        const bVidas = victoria ? stats.vidas * 500 : 0;
-        const bTiempo = victoria ? stats.tiempo * 10 : 0;
-        const total = this.puntuacion + bVidas + bTiempo;
+    dibujarHUD: function(ctx, vidas, boss = null) {
+        // Corazones
+        ctx.font = "30px Arial";
+        ctx.textAlign = "left";
+        let corazones = "❤️".repeat(vidas);
+        ctx.fillText(corazones, 20, 40);
 
-        const div = document.createElement('div');
-        div.id = 'menu-final';
-        div.innerHTML = `
-            <h2 style="font-size: 3rem; color: ${victoria ? '#f1c40f' : '#e74c3c'}">${titulo}</h2>
-            <p style="font-size: 1.5rem;">${mensaje}</p>
-            <div style="border: 2px solid #f1c40f; padding: 20px; background: rgba(0,0,0,0.6); margin: 20px;">
-                <p>Enemigos: ${this.puntuacion}</p>
-                <p>Bonus Vidas (x500): ${bVidas}</p>
-                <p>Bonus Tiempo (x10): ${bTiempo}</p>
-                <hr style="border: 0.5px solid #f1c40f">
-                <h3 style="color: #f1c40f; font-size: 2rem;">TOTAL: ${total}</h3>
-            </div>
-            <button id="btn-accion">${victoria ? 'AVANZAR' : 'REINTENTAR'}</button>
-        `;
-        contenedor.appendChild(div);
-        document.getElementById('btn-accion').onclick = () => {
-            if(victoria && siguienteNivel) window.location.href = siguienteNivel + ".html";
-            else location.reload();
-        };
+        // Barra de Boss (Solo Nivel 3)
+        if (boss && boss.activo) {
+            const bx = 150, by = 570, bw = 500, bh = 15;
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(bx, by, bw, bh);
+            ctx.fillStyle = boss.fase === 2 ? "#ff0000" : "#e74c3c";
+            ctx.fillRect(bx, by, (boss.vida / boss.vidaMax) * bw, bh);
+            ctx.strokeStyle = "#fff";
+            ctx.strokeRect(bx, by, bw, bh);
+        }
+    },
+
+    mostrarMensaje: function(ctx, titulo, subtitulo) {
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(0, 0, 800, 600);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#f1c40f";
+        ctx.font = "50px Almendra";
+        ctx.fillText(titulo, 400, 280);
+        ctx.font = "25px Arial";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(subtitulo, 400, 330);
     }
 };
+
+function playSfx(tipo) {
+    // Espacio para implementar AudioContext si lo deseas
+    console.log("SFX:", tipo);
+}
