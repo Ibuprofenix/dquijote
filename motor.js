@@ -25,10 +25,10 @@ window.onkeydown = (e) => {
 window.onkeyup = (e) => teclas[e.key] = false;
 
 // Carga de Imágenes
-const imgQ = new Image(); imgQ.src = 'https://i.imgur.com/8X8X8X8.png'; // Quijote
-const imgG = new Image(); imgG.src = 'https://i.imgur.com/9Y9Y9Y9.png'; // Gigante/Boss
-const imgS = new Image(); imgS.src = 'https://i.imgur.com/7Z7Z7Z7.png'; // Sancho
-const imgR = new Image(); imgR.src = 'https://i.imgur.com/6W6W6W6.png'; // Roca/Proyectil
+const imgQ = new Image(); imgQ.src = 'sprites_quijote.png'; // Quijote
+const imgG = new Image(); imgG.src = 'sprites_gigantes.png'; // Gigante/Boss
+const imgS = new Image(); imgS.src = 'sprites_sancho.png'; // Sancho
+const imgR = new Image(); imgR.src = 'sprites_roca.png'; // Roca/Proyectil
 
 function iniciar() {
     enemigos = []; proyectiles = []; lanzas = []; trizas = []; ayudas = [];
