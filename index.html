@@ -1,149 +1,118 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Don Quijote Invaders</title>
-    <script src="motor.js"></script>
-    <script src="interfaz.js"></script>
+    <meta charset="UTF-8"><title>Don Quijote Invaders</title>
+    <script src="motor.js"></script><script src="interfaz.js"></script>
     <style>
-        body { margin: 0; background: #2c3e50; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
-        canvas { border: 4px solid #3e2723; display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        #registro-inicial { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 2000; color: white; font-family: Georgia; }
+        body { margin: 0; background: #1a1a1a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        #registro-inicial { position: fixed; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 2000; color: white; font-family: Georgia; }
         .form-caja { background: #3e2723; padding: 40px; border: 3px solid #f1c40f; border-radius: 15px; text-align: center; }
-        input { padding: 12px; font-size: 1.2rem; width: 250px; margin: 20px 0; border-radius: 5px; border: none; text-align: center; }
-        .btn-entrar { padding: 12px 30px; background: #f1c40f; color: #3e2723; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        input { padding: 12px; font-size: 1.2rem; margin: 20px 0; border-radius: 5px; border: none; text-align: center; }
     </style>
 </head>
 <body>
-
     <div id="registro-inicial">
         <div class="form-caja">
-            <h2 style="color: #f1c40f;">IDENTIFÍCATE, CABALLERO</h2>
-            <input type="text" id="nombreUsuario" placeholder="Tu nombre..." maxlength="15">
-            <br>
-            <button class="btn-entrar" onclick="iniciarSesion()">ENTRAR EN COMBATE</button>
+            <h2 style="color:#f1c40f">NOMBRE DEL CABALLERO</h2>
+            <input type="text" id="nombreUsuario" maxlength="15" placeholder="Tu nombre...">
+            <br><button onclick="iniciarSesion()" style="padding:10px 20px; cursor:pointer">ENTRAR</button>
         </div>
     </div>
-
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <script>
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDQKeRoY27_L3cpX3qb3YvW1vMhHdpx2OHamZumKs4TqPgE93Smjzu6SPmY4RYEqiR/exec";
         const WEB_PUNTUACIONES = "https://educastur.sharepoint.com/sites/lospasosdelcid/SitePages/La_Mancha_Invaders.aspx?csf=1&web=1&e=GZTQm7&CID=c144ab21-57f7-4f02-a507-0e15c77abb06";
 
-        let usuarioActual = "";
-        let canvas, ctx, quijote, enemigos, proyectiles, lanzas, activo = false;
+        let usuarioActual = "", activo = false;
+        let quijote = { x: 400, y: 530, vidas: 3 };
+        let enemigos = [], proyectiles = [], lanzas = [], hDir = 1;
 
         function iniciarSesion() {
             const nom = document.getElementById('nombreUsuario').value.trim();
-            if(nom) {
-                usuarioActual = nom;
-                document.getElementById('registro-inicial').style.display = 'none';
-            }
+            if(nom) { usuarioActual = nom; document.getElementById('registro-inicial').style.display='none'; }
         }
 
-        window.onload = () => {
-            canvas = document.getElementById('gameCanvas');
-            ctx = canvas.getContext('2d');
-            quijote = { x: 400, y: 530, vidas: 3 };
-            enemigos = []; proyectiles = []; lanzas = [];
+        function init() {
+            Interfaz.puntuacion = 0; quijote.vidas = 3; quijote.x = 400;
+            proyectiles = []; lanzas = []; hDir = 1;
+            enemigos = [];
+            for(let f=0; f<3; f++) for(let c=0; c<8; c++) 
+                enemigos.push({ x: 100 + (c*85), y: 80 + (f*90), rot: Math.random()*6 });
+            SistemaPuntos.iniciarCronometro();
+            activo = true;
+        }
 
-            function posicionarEnemigos() {
-                enemigos = [];
-                for(let f=0; f<3; f++) {
-                    for(let c=0; c<8; c++) {
-                        enemigos.push({ x: 100 + (c * 85), y: 80 + (f * 100), rot: Math.random() * 6 });
-                    }
-                }
-            }
+        function loop() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 800, 600);
+            dibujarUI(ctx, quijote.vidas, Interfaz.puntuacion);
 
-            function init() {
-                Interfaz.puntuacion = 0;
-                quijote.vidas = 3;
-                posicionarEnemigos();
-                SistemaPuntos.iniciarCronometro(); // Activa el Timer
-                activo = true;
-            }
+            if (!activo && quijote.vidas > 0) {
+                ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "24px Georgia";
+                ctx.fillText("PULSA ESPACIO PARA COMBATIR", 400, 300);
+            } else if (activo) {
+                // Movimiento Quijote
+                if (teclado['ArrowLeft']) quijote.x -= 7;
+                if (teclado['ArrowRight']) quijote.x += 7;
+                quijote.x = Math.max(40, Math.min(760, quijote.x));
+                ctx.drawImage(imgQ, 480, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
 
-            function loop() {
-                ctx.clearRect(0, 0, 800, 600);
-                dibujarUI(ctx, quijote.vidas);
+                // Movimiento Horda Enemiga
+                let bajar = false;
+                enemigos.forEach(e => {
+                    e.x += (1.0 * hDir);
+                    if(e.x > 750 || e.x < 50) bajar = true;
+                    e.rot += 0.04;
+                    ctx.drawImage(imgM, e.x - 40, e.y - 40, 80, 80);
+                    ctx.save(); ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
+                    ctx.drawImage(imgA, -45, -45, 90, 90); ctx.restore();
+                    if(Math.random() < 0.003) proyectiles.push({x: e.x, y: e.y});
+                });
+                if(bajar) { hDir *= -1; enemigos.forEach(e => e.y += 15); }
 
-                if (!activo && quijote.vidas > 0) {
-                    ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "20px Georgia";
-                    ctx.fillText("PULSA ESPACIO PARA EMPEZAR", 400, 300);
-                } else if (activo) {
-                    // Movimiento Quijote
-                    if (teclado['ArrowLeft']) quijote.x -= 7;
-                    if (teclado['ArrowRight']) quijote.x += 7;
-                    quijote.x = Math.max(40, Math.min(760, quijote.x));
-                    ctx.drawImage(imgQ, 480, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
-
-                    // Enemigos
-                    enemigos.forEach((e, i) => {
-                        e.rot += 0.04;
-                        ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
-                        ctx.save();
-                        ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
-                        ctx.drawImage(imgA, -50, -50, 100, 100);
-                        ctx.restore();
-                        if(Math.random() < 0.002) proyectiles.push({x: e.x, y: e.y});
-                    });
-
-                    // Lanzas del Quijote
-                    lanzas.forEach((l, li) => {
-                        l.y -= 10;
-                        ctx.fillStyle = "white"; ctx.fillRect(l.x, l.y, 4, 15);
-                        enemigos.forEach((e, ei) => {
-                            if(Math.abs(l.x - e.x) < 40 && Math.abs(l.y - e.y) < 40) {
-                                enemigos.splice(ei, 1); lanzas.splice(li, 1);
-                                Interfaz.añadirPuntos(100); playSfx('trizas');
-                            }
-                        });
-                    });
-
-                    // Proyectiles enemigos
-                    proyectiles.forEach((p, pi) => {
-                        p.y += 5;
-                        ctx.drawImage(imgF, p.x-15, p.y-15, 30, 30);
-                        if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
-                            quijote.vidas--; playSfx('daño'); proyectiles.splice(pi, 1);
+                // Lanzas y Colisiones
+                lanzas.forEach((l, li) => {
+                    l.y -= 10; ctx.fillStyle = "#f1c40f"; ctx.fillRect(l.x, l.y, 4, 15);
+                    enemigos.forEach((e, ei) => {
+                        if(Math.abs(l.x - e.x) < 35 && Math.abs(l.y - e.y) < 35) {
+                            enemigos.splice(ei, 1); lanzas.splice(li, 1);
+                            Interfaz.añadirPuntos(100); playSfx('trizas');
                         }
                     });
+                });
 
-                    // Final de partida
-                    if(enemigos.length === 0 || quijote.vidas <= 0) {
-                        activo = false;
-                        const final = SistemaPuntos.calcularPuntosFinales(Interfaz.puntuacion, quijote.vidas);
-                        Interfaz.puntuacion = final.total;
-
-                        registrarEnGoogle(usuarioActual, Interfaz.puntuacion, WEB_APP_URL);
-                        
-                        Interfaz.mostrarMenuFinal(
-                            enemigos.length === 0 ? "¡VICTORIA!" : "¡DERROTA!",
-                            `Tiempo: ${final.segundos}s.`,
-                            enemigos.length === 0
-                        );
-
-                        // Botón Ranking
-                        const btn = document.createElement('button');
-                        btn.innerText = "VER RANKING";
-                        btn.onclick = () => { window.location.href = WEB_PUNTUACIONES; };
-                        btn.style = "margin-top:10px;padding:15px 30px;background:#3498db;color:white;border:none;cursor:pointer;font-weight:bold;border-radius:5px;margin-left:10px";
-                        document.getElementById('contenedor-botones').appendChild(btn);
+                // Proyectiles y Daño
+                proyectiles.forEach((p, pi) => {
+                    p.y += 4; ctx.drawImage(imgF, p.x-15, p.y-15, 30, 30);
+                    if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
+                        quijote.vidas--; playSfx('daño'); proyectiles.splice(pi, 1);
                     }
-                }
-                requestAnimationFrame(loop);
-            }
+                });
 
-            window.addEventListener('keydown', (e) => {
-                if (e.key === " " && usuarioActual !== "") {
-                    if (!activo && quijote.vidas > 0) init();
-                    else if (activo) { lanzas.push({ x: quijote.x, y: quijote.y }); playSfx('lanza'); }
+                if(enemigos.length === 0 || quijote.vidas <= 0) {
+                    activo = false;
+                    const fin = SistemaPuntos.calcularPuntosFinales(Interfaz.puntuacion, quijote.vidas);
+                    Interfaz.puntuacion = fin.total;
+                    registrarEnGoogle(usuarioActual, Interfaz.puntuacion, WEB_APP_URL);
+                    Interfaz.mostrarMenuFinal(enemigos.length === 0 ? "¡VICTORIA!" : "¡DERROTA!", `Tiempo: ${fin.segundos}s`, enemigos.length === 0);
+                    const b = document.createElement('button'); b.innerText = "VER RANKING";
+                    b.style = "padding:15px; margin-left:10px; cursor:pointer";
+                    b.onclick = () => location.href = WEB_PUNTUACIONES;
+                    document.getElementById('btns').appendChild(b);
                 }
-            });
-            loop();
-        };
+            }
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(e.key === " " && usuarioActual) {
+                if(!activo && quijote.vidas > 0) init();
+                else if(activo) { lanzas.push({x: quijote.x, y: quijote.y}); playSfx('lanza'); }
+            }
+        });
+        window.onload = () => { loop(); };
     </script>
 </body>
 </html>
