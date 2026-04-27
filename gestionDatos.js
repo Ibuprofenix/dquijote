@@ -28,8 +28,8 @@ function enviarDatos(resultadoFinal, vidas, nivel) {
         mode: 'no-cors',
         body: JSON.stringify({ 
             nombre: nombreParaEnviar, 
-            resultado: resultadoFinal, 
-            puntos: resultadoFinal, 
+            resultado: puntos, 
+            puntuacion: puntos, 
             vidas: vidas, 
             nivel: nivel 
         })
