@@ -1,10 +1,10 @@
 /**
  * MOTOR DE JUEGO: DON QUIJOTE VS GIGANTES
- * Versión Final Corregida (Audio + Soporte Sancho)
  */
 
-// --- 1. CONFIGURACIÓN VISUAL ---
+// --- 1. CONFIGURACIÓN VISUAL (Añadido 'index') ---
 const AMBIENTES = {
+    "index": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
     "Nivel1": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
     "Nivel2": { sky: "linear-gradient(to bottom, #f093fb, #7b3f00)", nombre: "Atardecer en Montiel" },
     "Nivel3": { sky: "linear-gradient(to bottom, #09203f, #000000)", nombre: "Duelo en el Castillo" }
@@ -12,14 +12,14 @@ const AMBIENTES = {
 
 // --- 2. AUTODETECCIÓN DE NIVEL ---
 window.addEventListener('load', () => {
-    const nombreArchivo = window.location.pathname.split("/").pop().replace(".html", "");
+    const nombreArchivo = window.location.pathname.split("/").pop().replace(".html", "") || "index";
     const canvas = document.getElementById('gameCanvas');
     if (canvas && AMBIENTES[nombreArchivo]) {
         canvas.style.background = AMBIENTES[nombreArchivo].sky;
     }
 });
 
-// --- 3. MOTOR DE AUDIO (Sintetizador Retro) ---
+// --- 3. MOTOR DE AUDIO (Sin cambios, es robusto) ---
 function playSfx(tipo) {
     const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
     const ahora = ctxAudio.currentTime;
@@ -27,7 +27,6 @@ function playSfx(tipo) {
     gain.connect(ctxAudio.destination);
 
     if (tipo === 'trizas') {
-        // SONIDO DE EXPLOSIÓN / CRASH
         const bufferSize = ctxAudio.sampleRate * 0.2;
         const buffer = ctxAudio.createBuffer(1, bufferSize, ctxAudio.sampleRate);
         const data = buffer.getChannelData(0);
@@ -81,10 +80,6 @@ const teclado = {};
 window.addEventListener('keydown', (e) => { teclado[e.key] = true; });
 window.addEventListener('keyup', (e) => { teclado[e.key] = false; });
 
-function irANivel(nivel) {
-    window.location.href = nivel + ".html"; 
-}
-
 // --- 5. AMBIENTE: POLVAREDA ---
 let particulasPolvo = [];
 function dibujarPolvareda(ctx) {
@@ -110,7 +105,7 @@ function dibujarPolvareda(ctx) {
     ctx.restore();
 }
 
-// --- 6. INTERFAZ DE USUARIO (UI) ---
+// --- 6. UI ---
 function dibujarUI(ctx, vidas) {
     ctx.save();
     dibujarPolvareda(ctx);
@@ -131,14 +126,11 @@ function dibujarUI(ctx, vidas) {
     ctx.restore();
 }
 
-// --- 7. MENSAJES ---
 function mostrarMensaje(ctx, titulo, subtitulo) {
     ctx.save();
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, 800, 600);
     ctx.textAlign = "center";
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = "black";
     ctx.fillStyle = "#f1c40f";
     ctx.font = "bold 45px 'Georgia', serif";
     ctx.fillText(titulo, 400, 280);
@@ -158,11 +150,11 @@ function dibujarRectRedondeado(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-// Imágenes Globales
-const imgQ = new Image(); imgQ.src = 'img/sprites_quijote.png';
-const imgG = new Image(); imgG.src = 'img/sprites_gigantes.png';
-const imgR = new Image(); imgR.src = 'img/sprites_roca.png';
-const imgM = new Image(); imgM.src = 'img/sprites_molino.png';
-const imgA = new Image(); imgA.src = 'img/sprites_aspas.png';
-const imgF = new Image(); imgF.src = 'img/sprites_rafaga.png';
-const imgS = new Image(); imgS.src = 'img/sprites_sancho.png';
+// --- 7. IMÁGENES (Rutas corregidas al mismo nivel) ---
+const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
+const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
+const imgR = new Image(); imgR.src = 'sprites_roca.png';
+const imgM = new Image(); imgM.src = 'sprites_molino.png';
+const imgA = new Image(); imgA.src = 'sprites_aspas.png';
+const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+const imgS = new Image(); imgS.src = 'sprites_sancho.png';
