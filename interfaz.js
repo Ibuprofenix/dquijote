@@ -45,7 +45,7 @@ const Interfaz = {
             if (victoria && siguienteNivel) {
                 window.location.href = siguienteNivel + ".html";
             } else {
-                window.location.href = "index.html"; // O reiniciar el nivel actual
+                window.location.href = "Nivel1.html"; // O reiniciar el nivel actual
             }
         };
     },
