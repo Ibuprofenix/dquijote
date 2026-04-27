@@ -2,159 +2,180 @@
  * MOTOR DE JUEGO: DON QUIJOTE VS GIGANTES
  */
 
-// --- 1. CONFIGURACIÓN VISUAL (Añadido 'index') ---
+// --- 1. CONFIGURACIÓN VISUAL DINÁMICA ---
 const AMBIENTES = {
-    "index": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
-    "Nivel1": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
-    "Nivel2": { sky: "linear-gradient(to bottom, #f093fb, #7b3f00)", nombre: "Atardecer en Montiel" },
-    "Nivel3": { sky: "linear-gradient(to bottom, #09203f, #000000)", nombre: "Duelo en el Castillo" }
+    "index": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Criptana" },
+    "Nivel1": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Criptana" },
+    "Nivel2": { sky: "linear-gradient(to bottom, #f093fb, #7b3f00)", nombre: "Montiel" },
+    "Nivel3": { sky: "linear-gradient(to bottom, #09203f, #000000)", nombre: "Castillo" }
 };
 
-// --- 2. AUTODETECCIÓN DE NIVEL ---
-window.addEventListener('load', () => {
-    const nombreArchivo = window.location.pathname.split("/").pop().replace(".html", "") || "index";
-    const canvas = document.getElementById('gameCanvas');
-    if (canvas && AMBIENTES[nombreArchivo]) {
-        canvas.style.background = AMBIENTES[nombreArchivo].sky;
-    }
-});
+let quijote = { x: 400, y: 530, vidas: 3 };
+let enemigos = [], proyectiles = [], lanzas = [], trizas = [], activo = false;
+let hDir = 1, velHorda = 0.8;
+let tiempoRestante = 120; // 2 minutos
+let timerInterval;
 
-// --- 3. MOTOR DE AUDIO (Sin cambios, es robusto) ---
+const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
+const imgM = new Image(); imgM.src = 'sprites_molino.png';
+const imgA = new Image(); imgA.src = 'sprites_aspas.png';
+const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
+
+// --- AUDIO ---
 function playSfx(tipo) {
     const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
     const ahora = ctxAudio.currentTime;
     const gain = ctxAudio.createGain();
     gain.connect(ctxAudio.destination);
+    const osc = ctxAudio.createOscillator();
+    osc.connect(gain);
 
     if (tipo === 'trizas') {
-        const bufferSize = ctxAudio.sampleRate * 0.2;
-        const buffer = ctxAudio.createBuffer(1, bufferSize, ctxAudio.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-        const noise = ctxAudio.createBufferSource();
-        noise.buffer = buffer;
-        const filter = ctxAudio.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, ahora);
-        filter.frequency.exponentialRampToValueAtTime(100, ahora + 0.2);
-        noise.connect(filter);
-        filter.connect(gain);
         gain.gain.setValueAtTime(0.3, ahora);
         gain.gain.linearRampToValueAtTime(0, ahora + 0.2);
-        noise.start(); noise.stop(ahora + 0.2);
+        osc.start(); osc.stop(ahora + 0.2);
     } else {
-        const osc = ctxAudio.createOscillator();
-        osc.connect(gain);
         switch(tipo) {
-            case 'lanza':
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(600, ahora);
-                osc.frequency.exponentialRampToValueAtTime(100, ahora + 0.1);
-                gain.gain.setValueAtTime(0.2, ahora);
-                gain.gain.linearRampToValueAtTime(0, ahora + 0.1);
-                osc.start(); osc.stop(ahora + 0.1);
-                break;
-            case 'daño':
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, ahora);
-                osc.frequency.linearRampToValueAtTime(50, ahora + 0.2);
-                gain.gain.setValueAtTime(0.3, ahora);
-                gain.gain.linearRampToValueAtTime(0, ahora + 0.2);
-                osc.start(); osc.stop(ahora + 0.2);
-                break;
-            case 'victoria':
-                osc.type = 'square';
-                [440, 554, 659, 880].forEach((f, i) => {
-                    osc.frequency.setValueAtTime(f, ahora + i * 0.08);
-                });
-                gain.gain.setValueAtTime(0.1, ahora);
-                gain.gain.linearRampToValueAtTime(0, ahora + 0.4);
-                osc.start(); osc.stop(ahora + 0.4);
-                break;
+            case 'lanza': osc.frequency.setValueAtTime(600, ahora); break;
+            case 'daño': osc.frequency.setValueAtTime(150, ahora); break;
+            case 'victoria': [440, 880].forEach((f, i) => osc.frequency.setValueAtTime(f, ahora + i*0.1)); break;
+        }
+        gain.gain.setValueAtTime(0.1, ahora);
+        gain.gain.linearRampToValueAtTime(0, ahora + 0.2);
+        osc.start(); osc.stop(ahora + 0.3);
+    }
+}
+
+// --- LÓGICA DE JUEGO ---
+function posicionarEnemigos() {
+    enemigos = [];
+    for(let f=0; f<3; f++) {
+        for(let c=0; c<8; c++) {
+            enemigos.push({ x: 100 + (c * 85), y: 80 + (f * 100), cargando: false, timer: 0, rot: Math.random() * Math.PI });
         }
     }
 }
 
-// --- 4. GESTIÓN DE ENTRADA ---
-const teclado = {};
-window.addEventListener('keydown', (e) => { teclado[e.key] = true; });
-window.addEventListener('keyup', (e) => { teclado[e.key] = false; });
+function init() {
+    if (window.Interfaz) Interfaz.puntuacion = 0;
+    proyectiles = []; lanzas = []; trizas = [];
+    quijote.vidas = 3; quijote.x = 400; tiempoRestante = 120;
+    posicionarEnemigos();
+    activo = true;
 
-// --- 5. AMBIENTE: POLVAREDA ---
-let particulasPolvo = [];
-function dibujarPolvareda(ctx) {
-    if (particulasPolvo.length < 25) {
-        particulasPolvo.push({
-            x: Math.random() * 800,
-            y: 600,
-            v: 0.3 + Math.random() * 0.8,
-            op: 0.1 + Math.random() * 0.3,
-            size: 1 + Math.random() * 2
-        });
-    }
-    ctx.save();
-    particulasPolvo.forEach((p, i) => {
-        p.y -= p.v;
-        p.x += Math.sin(p.y / 30) * 0.5;
-        ctx.fillStyle = `rgba(210, 180, 140, ${p.op})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        if (p.y < -10) particulasPolvo.splice(i, 1);
+    if(timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if(activo) {
+            tiempoRestante--;
+            if(tiempoRestante <= 0) finalizar(false, "El tiempo se ha agotado.");
+        }
+    }, 1000);
+}
+
+function finalizar(victoria, msg) {
+    activo = false;
+    clearInterval(timerInterval);
+    if(victoria) playSfx('victoria');
+    Interfaz.mostrarMenuFinal(victoria ? "¡VICTORIA!" : "¡DERROTA!", msg, victoria, "Nivel2", { vidas: quijote.vidas, tiempo: tiempoRestante });
+}
+
+function loop() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 800, 600);
+    
+    // UI: Vidas y Tiempo
+    dibujarUI(ctx, quijote.vidas);
+    ctx.fillStyle = tiempoRestante < 20 ? "#e74c3c" : "#f1c40f";
+    ctx.font = "bold 20px MedievalSharp";
+    ctx.textAlign = "right";
+    ctx.fillText(`TIEMPO: ${Math.floor(tiempoRestante/60)}:${(tiempoRestante%60).toString().padStart(2,'0')}`, 770, 42);
+
+    enemigos.forEach(e => {
+        if (activo) e.rot += 0.04;
+        ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
+        ctx.save();
+        ctx.translate(e.x, e.y - 10); ctx.rotate(e.rot);
+        ctx.drawImage(imgA, -50, -50, 100, 100);
+        ctx.restore();
     });
-    ctx.restore();
-}
 
-// --- 6. UI ---
-function dibujarUI(ctx, vidas) {
-    ctx.save();
-    dibujarPolvareda(ctx);
-    ctx.fillStyle = "rgba(62, 39, 35, 0.85)"; 
-    ctx.strokeStyle = "#f1c40f";
-    ctx.lineWidth = 2;
-    dibujarRectRedondeado(ctx, 15, 15, 170, 40, 10);
-    ctx.fill();
-    ctx.stroke();
-    ctx.font = "bold 16px 'Georgia', serif";
-    ctx.fillStyle = "#f1c40f";
-    ctx.fillText("HIDALGO:", 30, 41);
-    for(let i=0; i<3; i++) {
-        ctx.font = "18px Arial";
-        ctx.fillStyle = i < vidas ? "#e74c3c" : "#2c3e50";
-        ctx.fillText(i < vidas ? "❤" : "💀", 120 + (i * 22), 41);
+    if (activo) {
+        let bajar = false;
+        enemigos.forEach(e => {
+            e.x += velHorda * hDir;
+            if (e.x > 760 || e.x < 40) bajar = true;
+            if (!e.cargando && Math.random() < 0.005) e.cargando = true;
+            if (e.cargando && ++e.timer > 40) {
+                proyectiles.push({ x: e.x, y: e.y, size: 20 });
+                e.cargando = false; e.timer = 0;
+            }
+            if (e.y > 520) finalizar(false, "Los gigantes han invadido la tierra.");
+        });
+        if (bajar) { hDir *= -1; enemigos.forEach(e => e.y += 20); }
+
+        if (teclado['ArrowLeft'] || teclado['a']) quijote.x -= 7;
+        if (teclado['ArrowRight'] || teclado['d']) quijote.x += 7;
+        quijote.x = Math.max(40, Math.min(760, quijote.x));
+
+        proyectiles.forEach((p, i) => {
+            p.y += 4;
+            ctx.drawImage(imgF, p.x - 10, p.y - 10, 20, 20);
+            if (Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
+                quijote.vidas--; playSfx('daño'); proyectiles.splice(i, 1);
+                if(quijote.vidas <= 0) finalizar(false, "Has caído en combate.");
+            }
+        });
+
+        lanzas.forEach((l, i) => {
+            l.y -= 10;
+            ctx.drawImage(imgQ, 480, 440, 480, 440, l.x - 15, l.y - 15, 30, 30);
+            enemigos.forEach((e, ei) => {
+                if (Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
+                    playSfx('trizas'); Interfaz.añadirPuntos(100);
+                    enemigos.splice(ei, 1); lanzas.splice(i, 1);
+                }
+            });
+        });
+
+        if (enemigos.length === 0) finalizar(true, "¡Has derrotado a los gigantes!");
+        let sx = (teclado['ArrowLeft'] || teclado['ArrowRight']) ? 0 : 480;
+        ctx.drawImage(imgQ, sx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
+    } else if (quijote.vidas > 0 && enemigos.length > 0) {
+        mostrarMensaje(ctx, "PANTALLA 1", "PULSA ESPACIO PARA LUCHAR");
     }
-    ctx.restore();
+
+    requestAnimationFrame(loop);
 }
 
-function mostrarMensaje(ctx, titulo, subtitulo) {
-    ctx.save();
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-    ctx.fillRect(0, 0, 800, 600);
-    ctx.textAlign = "center";
+// --- UI Y SOPORTE ---
+const teclado = {};
+window.addEventListener('keydown', (e) => { 
+    teclado[e.key] = true; 
+    if(e.key === " " && !activo && quijote.vidas > 0) init();
+    if(e.key === " " && activo) { lanzas.push({x: quijote.x, y: quijote.y-30}); playSfx('lanza'); }
+});
+window.addEventListener('keyup', (e) => teclado[e.key] = false);
+
+function dibujarUI(ctx, vidas) {
+    ctx.fillStyle = "rgba(62, 39, 35, 0.8)";
+    ctx.fillRect(15, 15, 170, 40);
     ctx.fillStyle = "#f1c40f";
-    ctx.font = "bold 45px 'Georgia', serif";
-    ctx.fillText(titulo, 400, 280);
-    ctx.font = "22px 'Georgia', serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(subtitulo, 400, 330);
-    ctx.restore();
+    ctx.fillText("VIDAS:", 70, 41);
+    for(let i=0; i<3; i++) ctx.fillText(i < vidas ? "❤" : "💀", 120 + (i*22), 41);
 }
 
-function dibujarRectRedondeado(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+function mostrarMensaje(ctx, t, s) {
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0,0,800,600);
+    ctx.textAlign = "center"; ctx.fillStyle = "#f1c40f";
+    ctx.font = "40px Georgia"; ctx.fillText(t, 400, 280);
+    ctx.font = "20px Georgia"; ctx.fillText(s, 400, 330);
 }
 
-// --- 7. IMÁGENES (Rutas corregidas al mismo nivel) ---
-const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
-const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
-const imgR = new Image(); imgR.src = 'sprites_roca.png';
-const imgM = new Image(); imgM.src = 'sprites_molino.png';
-const imgA = new Image(); imgA.src = 'sprites_aspas.png';
-const imgF = new Image(); imgF.src = 'sprites_rafaga.png';
-const imgS = new Image(); imgS.src = 'sprites_sancho.png';
+window.onload = () => {
+    const canvas = document.getElementById('gameCanvas');
+    const path = window.location.pathname.split("/").pop().replace(".html", "") || "index";
+    if (AMBIENTES[path]) canvas.style.background = AMBIENTES[path].sky;
+    posicionarEnemigos();
+    loop();
+};
