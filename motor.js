@@ -1,8 +1,9 @@
 /**
  * MOTOR DE JUEGO: DON QUIJOTE VS GIGANTES
+ * Versión: Servidor Optimizado (Puntos, Tiempo y Rutas)
  */
 
-// --- 1. CONFIGURACIÓN VISUAL (Añadido 'index') ---
+// --- 1. CONFIGURACIÓN VISUAL Y NIVELES ---
 const AMBIENTES = {
     "index": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
     "Nivel1": { sky: "linear-gradient(to bottom, #4facfe, #f5deb3)", nombre: "Campos de Criptana" },
@@ -10,7 +11,6 @@ const AMBIENTES = {
     "Nivel3": { sky: "linear-gradient(to bottom, #09203f, #000000)", nombre: "Duelo en el Castillo" }
 };
 
-// --- 2. AUTODETECCIÓN DE NIVEL ---
 window.addEventListener('load', () => {
     const nombreArchivo = window.location.pathname.split("/").pop().replace(".html", "") || "index";
     const canvas = document.getElementById('gameCanvas');
@@ -19,7 +19,31 @@ window.addEventListener('load', () => {
     }
 });
 
-// --- 3. MOTOR DE AUDIO (Sin cambios, es robusto) ---
+// --- 2. SISTEMA DE PUNTUACIÓN Y TIEMPO ---
+const SistemaPuntos = {
+    tiempoInicio: 0,
+    puntosPorVida: 500,
+    puntosBaseTiempo: 2000,
+
+    iniciarCronometro: () => {
+        SistemaPuntos.tiempoInicio = Date.now();
+    },
+
+    calcularPuntosFinales: (vidasRestantes) => {
+        const tiempoTranscurrido = (Date.now() - SistemaPuntos.tiempoInicio) / 1000;
+        const bonoVidas = vidasRestantes * SistemaPuntos.puntosPorVida;
+        const bonoTiempo = Math.max(0, SistemaPuntos.puntosBaseTiempo - Math.floor(tiempoTranscurrido * 10));
+        
+        return {
+            total: (window.Interfaz ? Interfaz.puntuacion : 0) + bonoVidas + bonoTiempo,
+            tiempo: tiempoTranscurrido.toFixed(1),
+            bonoVidas: bonoVidas,
+            bonoTiempo: bonoTiempo
+        };
+    }
+};
+
+// --- 3. MOTOR DE AUDIO (Sintetizador Web Audio API) ---
 function playSfx(tipo) {
     const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
     const ahora = ctxAudio.currentTime;
@@ -105,16 +129,17 @@ function dibujarPolvareda(ctx) {
     ctx.restore();
 }
 
-// --- 6. UI ---
+// --- 6. INTERFAZ DE USUARIO (UI) ---
 function dibujarUI(ctx, vidas) {
     ctx.save();
     dibujarPolvareda(ctx);
+    
+    // Caja Vidas
     ctx.fillStyle = "rgba(62, 39, 35, 0.85)"; 
     ctx.strokeStyle = "#f1c40f";
     ctx.lineWidth = 2;
     dibujarRectRedondeado(ctx, 15, 15, 170, 40, 10);
-    ctx.fill();
-    ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.font = "bold 16px 'Georgia', serif";
     ctx.fillStyle = "#f1c40f";
     ctx.fillText("HIDALGO:", 30, 41);
@@ -123,6 +148,14 @@ function dibujarUI(ctx, vidas) {
         ctx.fillStyle = i < vidas ? "#e74c3c" : "#2c3e50";
         ctx.fillText(i < vidas ? "❤" : "💀", 120 + (i * 22), 41);
     }
+
+    // Caja Tiempo
+    const tiempo = SistemaPuntos.tiempoInicio > 0 ? ((Date.now() - SistemaPuntos.tiempoInicio) / 1000).toFixed(1) : "0.0";
+    dibujarRectRedondeado(ctx, 650, 15, 130, 40, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#f1c40f";
+    ctx.fillText(`TIEMPO: ${tiempo}s`, 665, 41);
+    
     ctx.restore();
 }
 
@@ -150,7 +183,7 @@ function dibujarRectRedondeado(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-// --- 7. IMÁGENES (Rutas corregidas al mismo nivel) ---
+// --- 7. IMÁGENES (Sin prefijo de carpeta) ---
 const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
 const imgG = new Image(); imgG.src = 'sprites_gigantes.png';
 const imgR = new Image(); imgR.src = 'sprites_roca.png';
