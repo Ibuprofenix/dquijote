@@ -1,4 +1,3 @@
-/** MOTOR DE JUEGO: RESTAURACIÓN DE ESTÉTICA Y MECÁNICAS **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -6,7 +5,6 @@ let quijote = { x: 400, y: 530, vidas: 3 };
 let enemigos = [], proyectiles = [], lanzas = [], particulasPolvo = [], activo = false;
 let hDir = 1, velHorda = 0.8, tiempoRestante = 120, timerInterval;
 
-// Imágenes
 const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
 const imgM = new Image(); imgM.src = 'sprites_molino.png';
 const imgA = new Image(); imgA.src = 'sprites_aspas.png';
@@ -32,7 +30,7 @@ function spawnEnemigos() {
 }
 
 function iniciar() {
-    if (window.Interfaz) Interfaz.puntuacion = 0;
+    Interfaz.puntuacion = 0;
     quijote.vidas = 3;
     tiempoRestante = 120;
     proyectiles = []; lanzas = [];
@@ -50,48 +48,22 @@ function iniciar() {
 function fin(victoria, msg) {
     activo = false;
     clearInterval(timerInterval);
-    Interfaz.mostrarMenuFinal(victoria ? "¡VICTORIA!" : "¡DERROTA!", msg, victoria, "Nivel2", { vidas: quijote.vidas, tiempo: tiempoRestante });
-}
-
-function dibujarHUD() {
-    ctx.save();
-    // Pergamino de HUD
-    ctx.fillStyle = "rgba(62, 39, 35, 0.85)";
-    ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 2;
-    const x=15, y=15, w=180, h=45, r=10;
-    ctx.beginPath(); ctx.moveTo(x+r, y);
-    ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
-    ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    // Vidas (Iconos)
-    ctx.font = "bold 16px 'Almendra'"; ctx.fillStyle = "#f1c40f";
-    ctx.fillText("HIDALGO:", 30, 42);
-    for(let i=0; i<3; i++) {
-        ctx.font = "18px Arial";
-        ctx.fillStyle = i < quijote.vidas ? "#e74c3c" : "#2c3e50";
-        ctx.fillText(i < quijote.vidas ? "❤" : "💀", 115 + (i * 22), 43);
-    }
-
-    // Timer
-    ctx.textAlign = "right"; ctx.font = "bold 20px 'MedievalSharp'";
-    ctx.fillStyle = tiempoRestante < 20 ? "#e74c3c" : "#f1c40f";
-    let m = Math.floor(tiempoRestante/60), s = tiempoRestante%60;
-    ctx.fillText(`TIEMPO: ${m}:${s<10?'0':''}${s}`, 770, 42);
-    ctx.restore();
+    Interfaz.mostrarMenuFinal(victoria ? "¡VICTORIA!" : "¡DERROTA!", msg, victoria, "nivel2", { vidas: quijote.vidas, tiempo: tiempoRestante });
 }
 
 function loop() {
-    ctx.clearRect(0, 0, 800, 600);
+    // 1. Dibujar Escenario Genérico (Cielo y Césped)
+    Interfaz.dibujarEscenario(ctx);
     
-    // Polvareda
-    if (particulasPolvo.length < 20) particulasPolvo.push({ x: Math.random()*800, y: 600, v: 0.5+Math.random(), op: 0.1+Math.random()*0.2 });
+    // 2. Polvareda (solo sobre el césped)
+    if (particulasPolvo.length < 20) particulasPolvo.push({ x: Math.random()*800, y: 580, v: 0.5+Math.random(), op: 0.1+Math.random()*0.3 });
     particulasPolvo.forEach((p, i) => {
-        p.y -= p.v; ctx.fillStyle = `rgba(210, 180, 140, ${p.op})`;
+        p.y -= p.v; ctx.fillStyle = `rgba(255, 255, 255, ${p.op})`;
         ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
-        if(p.y < 0) particulasPolvo.splice(i, 1);
+        if(p.y < 450) particulasPolvo.splice(i, 1);
     });
 
+    // 3. Enemigos
     enemigos.forEach(e => {
         if(activo) e.rot += 0.04;
         ctx.drawImage(imgM, e.x - 45, e.y - 45, 90, 90);
@@ -111,25 +83,32 @@ function loop() {
         if(teclas['ArrowLeft']) quijote.x -= 7;
         if(teclas['ArrowRight']) quijote.x += 7;
         quijote.x = Math.max(50, Math.min(750, quijote.x));
+        
         let fx = (teclas['ArrowLeft'] || teclas['ArrowRight']) ? 0 : 480;
         ctx.drawImage(imgQ, fx, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
 
-        // Lanzas
+        // 4. Lanzas (Estilizadas)
         lanzas.forEach((l, i) => {
-            l.y -= 10;
-            ctx.drawImage(imgQ, 480, 440, 480, 440, l.x - 15, l.y - 15, 30, 30);
+            l.y -= 12;
+            // Dibujo de lanza con brillo
+            ctx.fillStyle = "#f1c40f";
+            ctx.fillRect(l.x - 2, l.y, 4, 25);
+            ctx.fillStyle = "white";
+            ctx.fillRect(l.x - 1, l.y, 2, 10);
+
             enemigos.forEach((e, ei) => {
                 if(Math.abs(l.x - e.x) < 40 && Math.abs(l.y - e.y) < 40) {
                     enemigos.splice(ei, 1); lanzas.splice(i, 1);
                     Interfaz.añadirPuntos(100);
                 }
             });
+            if(l.y < 0) lanzas.splice(i, 1);
         });
 
-        // Ráfagas con incremento de tamaño
+        // 5. Ráfagas
         proyectiles.forEach((p, i) => {
             p.y += 4;
-            p.size += 0.25; // Crecimiento progresivo
+            p.size += 0.25;
             ctx.drawImage(imgF, p.x - p.size/2, p.y - p.size/2, p.size, p.size);
             if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
                 quijote.vidas--; proyectiles.splice(i, 1);
@@ -140,11 +119,11 @@ function loop() {
         if(enemigos.length === 0) fin(true, "¡Victorioso!");
     } else {
         ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(0,0,800,600);
-        ctx.fillStyle = "#f1c40f"; ctx.textAlign = "center"; ctx.font = "30px Almendra";
+        ctx.fillStyle = "#f1c40f"; ctx.textAlign = "center"; ctx.font = "bold 30px 'Almendra'";
         ctx.fillText("PULSA ESPACIO PARA LUCHAR", 400, 300);
     }
 
-    dibujarHUD();
+    Interfaz.dibujarHUD(ctx, quijote.vidas, tiempoRestante);
     requestAnimationFrame(loop);
 }
 spawnEnemigos();
