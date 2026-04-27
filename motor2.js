@@ -1,4 +1,4 @@
-/** * MOTOR DE JUEGO: NIVEL 2 - LA HORDA (CORRECCIÓN TOTAL) **/
+/** * MOTOR DE JUEGO: NIVEL 2 - LA HORDA (VERSIÓN PURA) **/
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -10,7 +10,7 @@ let hDir = 1, velHorda = 1.3, tiempoRestante = 100, timerInterval;
 let gigantesDerrotados = 0;
 let premio = null; 
 let powerUpTimer = null;
-let faseAtaque = 0; // 0: caminar, 1: cargar, 2: disparar
+let faseAtaque = 0; // 0: caminar, 1: mano arriba (pre-disparo), 2: dispara/suelta
 let frameCaminar = 0;
 
 const imgQ = new Image(); imgQ.src = 'sprites_quijote.png';
@@ -22,7 +22,6 @@ window.onkeydown = (e) => {
     teclas[e.key] = true;
     if(e.key === " " && !activo) iniciar();
     if(e.key === " " && activo) {
-        // DISPARO: La lanza guarda si es "super" en el momento de nacer
         lanzas.push({ x: quijote.x, y: quijote.y - 30, super: quijote.powerUp });
     }
 };
@@ -44,11 +43,12 @@ function iniciar() {
         if(activo) {
             if (faseAtaque === 0) {
                 frameCaminar = (frameCaminar + 1) % 2;
-                if(Math.random() < 0.2) faseAtaque = 1; 
+                if(Math.random() < 0.2) faseAtaque = 1; // Pasa a MANO ARRIBA
             } else if (faseAtaque === 1) {
-                lanzarRocasHorda(); faseAtaque = 2; 
+                lanzarRocasHorda(); // Suelta roca
+                faseAtaque = 2; 
             } else {
-                faseAtaque = 0;
+                faseAtaque = 0; // Vuelve a caminar
             }
             if(faseAtaque === 0) tiempoRestante--;
         }
@@ -75,23 +75,20 @@ function loop() {
         if(activo) {
             e.x += velHorda * hDir;
             if(e.x > 760 || e.x < 40) bajar = true;
-            // COMPROBACIÓN DE INVASIÓN (GAME OVER)
-            if(e.y > 500) fin(false, "¡Los gigantes han invadido tu posición!");
+            
+            // MUERTE POR INVASIÓN (Si tocan la línea de defensa)
+            if(e.y >= 490) { 
+                fin(false, "¡Los gigantes han cruzado tus defensas!");
+                return;
+            }
         }
 
         ctx.save();
         if(e.hp === 1) ctx.filter = "brightness(40%)";
         if(imgG.complete) {
-            // Lógica de Sprites: si faseAtaque es 1 (Cargando) usa frames 3 o 4 (Mano arriba)
+            // Animación: Si faseAtaque es 1 (Pre-disparo), forzamos frames 3 o 4 (Mano arriba)
+            // Si es 0 o 2, usamos frames 1 o 2 (Caminando/Reposo)
             let sx = (faseAtaque === 1) ? (2048 + (frameCaminar * 1024)) : (frameCaminar * 1024);
-            
-            if(faseAtaque === 1) { // HALO DE CARGA
-                ctx.beginPath();
-                let grad = ctx.createRadialGradient(e.x, e.y - 40, 5, e.x, e.y - 40, 60);
-                grad.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
-                grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
-                ctx.fillStyle = grad; ctx.arc(e.x, e.y - 40, 60, 0, Math.PI * 2); ctx.fill();
-            }
             ctx.drawImage(imgG, sx, 0, 1024, 1300, e.x - 40, e.y - 50, 80, 100);
         }
         ctx.restore();
@@ -99,14 +96,14 @@ function loop() {
 
     if(bajar && activo) { hDir *= -1; enemigos.forEach(e => e.y += 35); }
 
-    // DIBUJO DEL RAYO (PREMIO)
+    // PREMIO RAYO (POWER-UP)
     if(premio && premio.visible) {
         if(premio.y < 530) premio.y += 5;
-        ctx.fillStyle = "cyan"; ctx.shadowBlur = 20; ctx.shadowColor = "white";
-        ctx.beginPath(); // Forma de rayo
+        ctx.fillStyle = "cyan";
+        ctx.beginPath();
         ctx.moveTo(premio.x, premio.y-20); ctx.lineTo(premio.x-10, premio.y);
         ctx.lineTo(premio.x+5, premio.y); ctx.lineTo(premio.x-5, premio.y+20);
-        ctx.fill(); ctx.shadowBlur = 0;
+        ctx.fill();
 
         if(Math.abs(quijote.x - premio.x) < 40 && Math.abs(quijote.y - premio.y) < 40) {
             premio.visible = false; quijote.powerUp = true;
@@ -130,16 +127,20 @@ function loop() {
         }
         ctx.restore();
 
-        // LANZAS MEJORADAS
+        // LANZAS (NORMAL vs POWER-UP)
         lanzas.forEach((l, i) => {
-            l.y -= l.super ? 25 : 12; // Mucho más rápida si es super
+            l.y -= l.super ? 25 : 12; 
             ctx.fillStyle = l.super ? "cyan" : "#f1c40f";
             ctx.fillRect(l.x - 2, l.y, l.super ? 6 : 4, 30);
             
             enemigos.forEach((e, ei) => {
                 if(Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
-                    if(l.super) { e.hp = 0; } // Mata de 1 golpe
-                    else { e.hp--; lanzas.splice(i, 1); } // Lanza normal se rompe
+                    if(l.super) { 
+                        e.hp = 0; // Atraviesa y mata de 1 golpe
+                    } else { 
+                        e.hp--; 
+                        lanzas.splice(i, 1); 
+                    }
                     
                     if(e.hp <= 0) {
                         enemigos.splice(ei, 1); gigantesDerrotados++;
@@ -157,16 +158,16 @@ function loop() {
             if(imgR.complete) ctx.drawImage(imgR, p.x-15, p.y-15, 30, 30);
             if(Math.abs(p.x - quijote.x) < 30 && Math.abs(p.y - quijote.y) < 30) {
                 quijote.vidas--; proyectiles.splice(i, 1);
-                if(quijote.vidas <= 0) fin(false, "¡El caballero ha sucumbido!");
+                if(quijote.vidas <= 0) fin(false, "¡Derrotado!");
             }
             if(p.y > 600) proyectiles.splice(i, 1);
         });
 
-        if(enemigos.length === 0) fin(true, "¡Has salvado la Mancha!");
+        if(enemigos.length === 0) fin(true, "¡Horda derrotada!");
     } else {
         ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0,0,800,600);
         ctx.fillStyle = "#f1c40f"; ctx.textAlign = "center"; ctx.font = "bold 30px 'Almendra'";
-        ctx.fillText("PULSA ESPACIO PARA COMBATIR", 400, 300);
+        ctx.fillText("PULSA ESPACIO PARA LUCHAR", 400, 300);
     }
     if(typeof Interfaz !== 'undefined') Interfaz.dibujarHUD(ctx, quijote.vidas, tiempoRestante);
     requestAnimationFrame(loop);
