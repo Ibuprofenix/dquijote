@@ -13,6 +13,9 @@
     
     <script>
         window.onload = () => {
+            // --- CONFIGURACIÓN ---
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDQKeRoY27_L3cpX3qb3YvW1vMhHdpx2OHamZumKs4TqPgE93Smjzu6SPmY4RYEqiR/exec";
+    const WEB_PUNTUACIONES = "https://educastur.sharepoint.com/sites/lospasosdelcid/SitePages/La_Mancha_Invaders.aspx?csf=1&web=1&e=GZTQm7&CID=c144ab21-57f7-4f02-a507-0e15c77abb06";
             const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
             let quijote = { x: 400, y: 530, vidas: 3 };
             let enemigos = [], proyectiles = [], lanzas = [], trizas = [], activo = false;
