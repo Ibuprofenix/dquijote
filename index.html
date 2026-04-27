@@ -2,77 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Don Quijote - Inicio</title>
+    <title>Don Quijote vs Gigantes</title>
     <link rel="stylesheet" href="maestro.css">
-    <script src="motor.js" defer></script>
-    <script src="interfaz.js" defer></script>
 </head>
-<body class="bg-nivel1">
-    <h1 class="game-header">CAMPO DE CRIPTANA</h1>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <script>
-        window.onload = () => {
-            const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
-            let quijote = { x: 400, y: 530, vidas: 3 }, molinos = [], lanzas = [], activo = false;
-
-            function init() {
-                molinos = []; lanzas = [];
-                for(let i=0; i<5; i++) {
-                    molinos.push({ x: 100 + (i*150), y: 150, angulo: 0, v: 0.02, activo: true });
-                }
-                activo = true;
-            }
-
-            function loop() {
-                ctx.clearRect(0, 0, 800, 600);
-                // Aquí usamos la función de interfaz.js
-                if (typeof dibujarHUD === 'function') dibujarHUD(ctx, quijote.vidas);
-
-                if (!activo) {
-                    if (typeof mostrarMensaje === 'function') mostrarMensaje(ctx, "NIVEL 1: LOS MOLINOS", "Pulsa ESPACIO para combatir");
-                } else {
-                    if (teclado['ArrowLeft'] || teclado['a']) quijote.x -= 7;
-                    if (teclado['ArrowRight'] || teclado['d']) quijote.x += 7;
-                    quijote.x = Math.max(40, Math.min(760, quijote.x));
-
-                    lanzas.forEach((l, i) => {
-                        l.y -= 10;
-                        molinos.forEach((m, mi) => {
-                            if (Math.abs(l.x - m.x) < 50 && Math.abs(l.y - m.y) < 50) {
-                                molinos.splice(mi, 1); lanzas.splice(i, 1);
-                                playSfx('daño');
-                            }
-                        });
-                        if (l.y < 0) lanzas.splice(i, 1);
-                    });
-
-                    molinos.forEach(m => {
-                        m.angulo += m.v;
-                        ctx.save();
-                        ctx.translate(m.x, m.y); ctx.rotate(m.angulo);
-                        ctx.fillStyle = "#fff"; ctx.fillRect(-50, -5, 100, 10); ctx.fillRect(-5, -50, 10, 100);
-                        ctx.restore();
-                    });
-
-                    // Dibujo del Caballero
-                    ctx.drawImage(imgQ, 480, 0, 480, 440, quijote.x - 50, quijote.y - 45, 100, 92);
-                    lanzas.forEach(l => { ctx.fillStyle = "#fff"; ctx.fillRect(l.x - 2, l.y, 4, 15); });
-
-                    if (molinos.length === 0) {
-                        activo = false;
-                        mostrarMensaje(ctx, "¡MOLINOS DERROTADOS!", "Cargando Nivel 2...");
-                        // Esta línea busca el siguiente archivo
-                        setTimeout(() => { window.location.href = "nivel2.html"; }, 2000);
-                    }
-                }
-                requestAnimationFrame(loop);
-            }
-            window.addEventListener('keydown', (e) => { 
-                if (e.key === " ") { if (!activo) init(); else lanzas.push({ x: quijote.x, y: quijote.y - 30 }); }
-            });
-            loop();
-        };
-    </script>
+<body>
+    <h1 class="game-header">LOS MOLINOS DE CRIPTANA</h1>
+    <div id="escenario" style="position: relative; display: inline-block;">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    <script src="interfaz.js"></script>
+    <script src="motor.js"></script>
 </body>
 </html>
-          
