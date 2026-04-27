@@ -2,55 +2,51 @@
 @import url('https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Almendra:wght@700&display=swap');
 
-* { box-sizing: border-box; }
-
 body {
-    background: #0d0d0d;
+    background: #1a1a1a;
     margin: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center; 
     align-items: center;
+    justify-content: center;
     min-height: 100vh;
     font-family: 'Almendra', serif;
+    overflow: hidden;
 }
 
 .game-header {
     color: #f1c40f;
-    text-shadow: 3px 3px 5px #000;
-    margin: 10px 0;
-    font-size: 2.5rem;
-    text-transform: uppercase;
+    text-shadow: 2px 2px 4px #000;
+    margin-bottom: 10px;
 }
 
 canvas {
-    border: 15px ridge #5d4037 !important;
-    box-shadow: 0 0 60px rgba(0,0,0,0.9);
-    background: #87CEEB; /* Fondo por defecto */
+    border: 15px ridge #5d4037;
+    background: #87CEEB; /* Azul cielo por defecto */
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
     display: block;
 }
 
-/* Interfaz dinámica */
+/* Pantalla de resultados */
 #menu-final {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0,0,0,0.85);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: white;
     font-family: 'MedievalSharp', cursive;
-    text-align: center;
+    z-index: 100;
 }
 
 #btn-accion {
-    padding: 15px 40px;
-    font-size: 1.2rem;
-    cursor: pointer;
     background: #27ae60;
     color: white;
     border: none;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    cursor: pointer;
     border-radius: 5px;
-    font-family: 'MedievalSharp', cursive;
 }
