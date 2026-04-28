@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Almendra:wght@400;700&family=Cinzel:wght@700;900&display=swap');
+
+body {
+    margin: 0; background: #1a1a1a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100vh; font-family: 'Almendra', serif;
+}
+
+#game-container {
+    border: 10px solid #3e2723;
+    box-shadow: 0 0 50px #000;
+    position: relative;
+}
+
+#escenario { position: relative; width: 800px; height: 600px; background: #000; }
+
+#resumenGesta {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 420px; padding: 30px; background: #fdf5e6;
+    background-image: url('https://www.transparenttextures.com/patterns/old-paper.png');
+    border: 6px double #5d4037; text-align: center; z-index: 100;
+}
+
+#gesta-titulo { font-family: 'Cinzel', serif; color: #8b4513; margin-bottom: 10px; }
+
+/* Contenedor de Botones */
+.selector-niveles {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-nivel {
+    background: #5d4037;
+    color: #ffd700;
+    border: 2px solid #ffd700;
+    padding: 12px;
+    font-family: 'Cinzel', serif;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-nivel:hover {
+    background: #3e2723;
+    transform: scale(1.03);
+}
+
+#instrucciones {
+    background: #3e2723; color: #ffd700; padding: 15px; width: 770px;
+    display: flex; justify-content: space-around; font-family: 'Cinzel', serif;
+    border-top: 3px solid #ffd700;
+}
