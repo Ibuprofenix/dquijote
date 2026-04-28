@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Almendra:wght@400;700&family=Cinzel:wght@700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a1a;
+    color: #3e2723;
+    font-family: 'Almendra', serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Fondos dinámicos por nivel */
+.nivel1 { background: linear-gradient(to bottom, #87CEEB, #f4e4bc); } /* Día */
+.nivel2 { background: linear-gradient(to bottom, #ff8c00, #4b2c20); } /* Atardecer */
+.nivel3 { background: linear-gradient(to bottom, #2c1654, #000000); } /* Noche/Duelo */
+
+#escenario {
+    position: relative;
+    margin-top: 20px;
+    border: 8px solid #5d4037;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    line-height: 0;
+}
+
+#gameCanvas {
+    background-color: transparent;
+    cursor: crosshair;
+}
+
+.game-header {
+    font-family: 'Cinzel', serif;
+    font-size: 3rem;
+    color: #fdf5e6;
+    text-shadow: 3px 3px 0px #5d4037, 5px 5px 15px rgba(0,0,0,0.5);
+    margin: 10px 0;
+}
+
+/* UI de Sancho y mensajes */
+#game-ui {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background: #fdf5e6;
+    border: 3px double #5d4037;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+/* Botones de acción */
+#btnAccion {
+    display: none;
+    position: absolute;
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 15px 30px;
+    font-family: 'Cinzel', serif;
+    font-size: 1.2rem;
+    cursor: pointer;
+    background: #4CAF50;
+    color: white;
+    border: 4px double #2e7d32;
+    z-index: 100;
+}
