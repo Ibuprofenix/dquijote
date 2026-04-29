@@ -2,23 +2,59 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Quijote Invaders - Selector</title>
+    <title>Don Quijote: La Gesta de los Gigantes</title>
+    <!-- Mantenemos Tailwind por si usas alguna utilidad rápida, pero manda maestro.css -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="maestro.css">
 </head>
 <body>
+
     <div id="game-container">
-        <div id="escenario">
-            <canvas id="gameCanvas" width="800" height="600"></canvas>
-            <div id="resumenGesta">
-                <h2 id="gesta-titulo">QUIJOTE INVADERS</h2>
-                <div class="selector-niveles">
-                    <button class="btn-nivel" data-nivel="1">MOLINOS</button>
-                    <button class="btn-nivel" data-nivel="2">GIGANTES</button>
-                    <button class="btn-nivel" data-nivel="3">DUELO FINAL</button>
-                </div>
+        <!-- HUD Superior: Nombre y Vidas -->
+        <div id="hud-superior" class="hud-superior">
+            <div id="hud-nombre" class="hud-nombre uppercase">Caballero</div>
+            <div id="hud-corazones" class="hud-corazones">❤️❤️❤️</div>
+        </div>
+
+        <!-- Barra de Vida del Boss: Solo aparece en Nivel 3 -->
+        <div id="boss-ui" class="boss-container">
+            <div class="boss-label">Gigante de la Mancha</div>
+            <div class="boss-marco">
+                <div id="boss-vida-roja" class="boss-vida-actual"></div>
             </div>
         </div>
+
+        <!-- Capa 1: Registro de Caballero -->
+        <div id="registro-caballero" class="pantalla-overlay">
+            <h1 class="gesta-titulo">¡A LA GESTA!</h1>
+            <div class="tarjeta-cartoon">
+                <input type="text" id="nombreJugador" placeholder="TU APODO..." maxlength="12">
+                <!-- El botón se activa desde interfaz.js -->
+                <button id="btn-comenzar" disabled class="btn-cartoon">¡INICIAR!</button>
+            </div>
+        </div>
+
+        <!-- Capa 2: Selección de Destino (Hidden por defecto) -->
+        <div id="resumenGesta" class="pantalla-overlay hidden">
+            <h2 id="titulo-gesta" class="gesta-titulo">ELIGE DESTINO</h2>
+            <div class="flex gap-6">
+                <button class="btn-nivel card-nivel" data-nivel="1">⚔️ MOLINOS</button>
+                <button class="btn-nivel card-nivel" data-nivel="2">👹 GIGANTES</button>
+                <button class="btn-nivel card-nivel" data-nivel="3">👑 COLOSO</button>
+            </div>
+            <!-- Botón opcional por si quieren volver atrás o reiniciar tras morir -->
+            <button class="btn-cartoon mt-8" onclick="location.reload()" style="font-size: 1.2rem; padding: 10px 20px;">REINICIAR</button>
+        </div>
+
+        <!-- El lienzo del juego -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
     </div>
+
+    <!-- 
+        ORDEN DE CARGA:
+        1. Interfaz (Define Visualizador, Datos y Eventos de botones)
+        2. Juego (El motor que usa lo definido en Interfaz)
+    -->
     <script src="interfaz.js"></script>
     <script src="juego.js"></script>
 </body>
