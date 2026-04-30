@@ -1,0 +1,91 @@
+/* --- PANTALLAS (OVERLAYS) --- */
+.pantalla-overlay {
+    position: absolute; 
+    inset: 0; 
+    z-index: 200; /* Siempre por encima de molinos y colinas */
+    background: rgba(0, 0, 0, 0.85);
+    display: flex; 
+    flex-direction: column;
+    align-items: center; 
+    justify-content: center;
+    font-family: 'Bangers', cursive;
+}
+
+/* --- TARJETA PRINCIPAL (AMARILLA) --- */
+.tarjeta-cartoon {
+    background: #fbbf24;
+    padding: 40px;
+    border-radius: 25px;
+    border: 8px solid #000;
+    text-align: center;
+    box-shadow: 15px 15px 0 rgba(0, 0, 0, 0.4);
+    max-width: 600px;
+}
+
+.gesta-titulo { 
+    font-size: 5rem; 
+    margin: 0 0 20px 0;
+    color: #fff;
+    text-shadow: 6px 6px 0 #ef4444, 2px 2px 0 #000;
+    text-transform: uppercase;
+}
+
+/* --- SELECTOR DE NIVELES --- */
+.contenedor-niveles {
+    display: flex;
+    gap: 20px;
+    margin-top: 25px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.card-nivel {
+    background: #fff;
+    color: #000;
+    border: 6px solid #000;
+    padding: 20px;
+    min-width: 160px;
+    cursor: pointer;
+    border-radius: 20px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card-nivel:hover {
+    transform: translateY(-15px) rotate(-3deg) scale(1.1);
+    background: #ef4444;
+    color: #fff;
+}
+
+.card-nivel h3 { margin: 0; font-size: 2.2rem; }
+.card-nivel p { margin: 5px 0 0; font-size: 1.3rem; }
+
+/* --- INPUTS Y BOTONES --- */
+#nombreJugador {
+    width: 80%;
+    padding: 15px;
+    font-family: 'Bangers';
+    font-size: 2rem;
+    border: 6px solid #000;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.btn-cartoon {
+    background: #000; 
+    color: #fff; 
+    border: none;
+    padding: 15px 50px; 
+    font-size: 2.5rem; 
+    cursor: pointer;
+    border-radius: 15px;
+    transition: transform 0.2s;
+}
+
+.btn-cartoon:hover {
+    background: #ef4444;
+    transform: scale(1.05);
+}
+
+/* UTILIDAD PARA OCULTAR */
+.hidden { display: none !important; }
