@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
+   
+
     const canvas = document.getElementById('gameCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -23,39 +25,38 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onkeyup = (e) => teclas[e.key] = false;
 
     const Juego = {
-        nivel: 0, activo: false, frame: 0, hDir: 1, ultimoDisparo: 0, 
-        sanchoUsado: false, tiempoInicio: 0, potenciado: 0, bajas: 0,
-        sancho: { activo: false, x: -100, y: 530, estado: 'espera' },
-        entidades: { quijote: null, enemigos: [], proyectiles: [], lanzas: [], boss: null, nubes: [], items: [], trizas: [] },
+        nivel: 0, activo: false, corriendo: false,
+        frame: 0, hDir: 1, ultimoDisparo: 0, sanchoUsado: false, 
+        potenciado: 0, bajas: 0, metasBajas: [3, 11, 17],
+        sancho: { activo: false, x: -150, y: 530, estado: 'espera', timer: 0 },
+        entidades: { quijote: null, enemigos: [], proyectiles: [], lanzas: [], boss: null, items: [], trizas: [] },
         
         iniciarNivel(n) {
+            AudioEngine.reproducir('click');
             this.nivel = n;
             this.activo = true; 
             this.frame = 0; 
             this.bajas = 0;
-            this.tiempoInicio = Date.now();
-            this.potenciado = 0;
-            this.hDir = 1;
+            this.potenciado = 0; 
+            this.hDir = 1; 
             this.sanchoUsado = false; 
-            this.sancho = { activo: false, x: -100, y: 530, estado: 'espera' };
+            this.metasBajas = [3, 11, 17];
+            this.sancho = { activo: false, x: -150, y: 530, estado: 'espera', timer: 0 };
             
             this.entidades = {
                 quijote: { x: 400, y: 530, vidas: 3, dir: 1, w: 90, h: 85 },
                 enemigos: [], proyectiles: [], lanzas: [], items: [], trizas: [],
-                boss: n === 3 ? { x: 340, y: 20, hp: 50, hpMax: 50, dir: 1, w: 115, h: 145, frameAtaque: 0 } : null,
-                nubes: Array.from({length: 6}, () => ({ 
-                    x: Math.random()*800, y: 40+Math.random()*120, 
-                    w: 80+Math.random()*60, v: 0.15+Math.random()*0.3 
-                }))
+                boss: n === 3 ? { x: 340, y: 20, hp: 60, hpMax: 60, dir: 1, w: 115, h: 145, frameAtaque: 0 } : null
             };
 
+            const container = document.getElementById('game-container');
+            container.className = `nivel-${n}`;
             this.generarFilaEnemigos(n === 3 ? 180 : 50, n === 3 ? 2 : 3);
             
-            document.getElementById('registro-caballero').style.setProperty('display', 'none', 'important');
-            document.getElementById('resumenGesta').style.setProperty('display', 'none', 'important');
+            document.getElementById('registro-caballero').classList.add('hidden');
+            document.getElementById('resumenGesta').classList.add('hidden');
             document.getElementById('hud-superior').style.display = "flex";
             document.getElementById('hud-nombre').innerText = document.getElementById('nombreJugador').value || "Hidalgo";
-            document.getElementById('boss-ui').style.display = (n === 3) ? "flex" : "none";
             
             canvas.style.display = "block";
             if(!this.corriendo) { this.corriendo = true; this.loop(); }
@@ -65,11 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
             for(let f=0; f<filas; f++) {
                 for(let c=0; c<7; c++) {
                     this.entidades.enemigos.push({
-                        x: 120+c*90, 
-                        y: yBase + (f * 110),
-                        hp: this.nivel===1?1:(this.nivel===2?2:3), 
-                        hpMax: this.nivel===1?1:(this.nivel===2?2:3),
-                        frameAtaque: 0, offsetOla: c * 0.5
+                        x: 120+c*90, y: yBase + (f * 110),
+                        hp: this.nivel === 1 ? 1 : (this.nivel === 2 ? 2 : 3), 
+                        frameAtaque: 0, rot: 0
                     });
                 }
             }
@@ -78,221 +77,188 @@ document.addEventListener('DOMContentLoaded', () => {
         explotarEnTrizas(x, y, color) {
             for(let i=0; i<12; i++) {
                 this.entidades.trizas.push({
-                    x: x, y: y,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8,
-                    r: 2 + Math.random() * 4,
-                    vida: 1.0,
-                    color: color
+                    x, y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                    r: 2 + Math.random() * 4, vida: 1.0, color
                 });
             }
         },
 
-        actualizarSancho() {
-            const s = this.sancho;
-            const q = this.entidades.quijote;
-            if (this.nivel === 3 && !this.sanchoUsado && q?.vidas === 1 && s.estado === 'espera') {
-                s.activo = true; s.estado = 'entrando'; this.sanchoUsado = true;
-            }
-            if (!s.activo) return;
-            if (s.estado === 'entrando') {
-                s.x += 2.5;
-                if (s.x >= 120) {
-                    this.crearItem(s.x, s.y, 'corazon', "❤️");
-                    s.estado = 'saliendo';
-                }
-            } else if (s.estado === 'saliendo') {
-                s.x -= 2.5;
-                if (s.x < -100) s.activo = false;
-            }
-            if (Sprites.imgS.listo) ctx.drawImage(Sprites.imgS, 0, 0, 1024, 1024, s.x-45, s.y-85, 90, 90);
+        crearItem(x, y, tipo, icono) {
+            this.entidades.items.push({ x, y: y, destinoY: 530, t: tipo, icono: icono, vida: 240 });
         },
 
-        crearItem(x, y, tipo, icono) {
-            this.entidades.items.push({ x, y, vy: 2, t: tipo, icono: icono, vida: 180 });
+        actualizarSancho(q) {
+            const s = this.sancho;
+            if (this.nivel === 3 && !this.sanchoUsado && q.vidas === 1 && s.estado === 'espera') {
+                s.activo = true; s.estado = 'entrando'; this.sanchoUsado = true;
+                AudioEngine.reproducir('sancho');
+            }
+            if (!s.activo) return;
+
+            if (s.estado === 'entrando') {
+                s.x += 4; if (s.x >= 120) { s.estado = 'ayudando'; s.timer = 80; }
+            } else if (s.estado === 'ayudando') {
+                s.timer--;
+                if (s.timer === 40) this.crearItem(s.x + 40, s.y, 'corazon', "❤️");
+                if (s.timer <= 0) s.estado = 'saliendo';
+            } else if (s.estado === 'saliendo') {
+                s.x -= 4; if (s.x < -150) s.activo = false;
+            }
+
+            if (Sprites.imgS.listo) {
+                ctx.drawImage(Sprites.imgS, 0, 0, 1024, 1024, s.x - 45, s.y - 85, 90, 90);
+            }
+        },
+
+        roundRect(x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
         },
 
         loop() {
-            this.frame++; ctx.clearRect(0, 0, 800, 600);
-            
-            let cSky = (this.nivel === 2) ? ["#ff4500", "#ff8c00"] : 
-                       (this.nivel === 3) ? ["#1a0b2e", "#483d8b"] : ["#1e90ff", "#87ceeb"];
-            let g = ctx.createLinearGradient(0, 0, 0, 600);
-            g.addColorStop(0, cSky[0]); g.addColorStop(0.8, cSky[1]);
-            ctx.fillStyle = g; ctx.fillRect(0, 0, 800, 600);
-            
-            this.entidades.nubes.forEach(n => {
-                n.x += n.v; if(n.x > 850) n.x = -n.w;
-                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-                ctx.beginPath(); ctx.ellipse(n.x, n.y, n.w/2, n.w/4, 0, 0, Math.PI * 2); ctx.fill();
-            });
-            ctx.fillStyle = "#5d2e0a"; ctx.fillRect(0, 530, 800, 70); 
-
+            this.frame++;
+            ctx.clearRect(0, 0, 800, 600); 
             if (!this.activo) { requestAnimationFrame(() => this.loop()); return; }
 
-            this.entidades.trizas.forEach((t, i) => {
-                t.x += t.vx; t.y += t.vy; t.vy += 0.2; t.vida -= 0.02;
-                if(t.vida <= 0) this.entidades.trizas.splice(i, 1);
-                ctx.fillStyle = t.color;
-                ctx.globalAlpha = t.vida;
-                ctx.fillRect(t.x, t.y, t.r, t.r);
-                ctx.globalAlpha = 1.0;
-            });
-
-            let segRestantes = 120 - Math.floor((Date.now() - this.tiempoInicio) / 1000);
-            const timerHUD = document.getElementById('hud-tiempo');
-            if(timerHUD) timerHUD.innerText = `${Math.floor(segRestantes/60)}:${(segRestantes%60).toString().padStart(2,'0')}`;
-            if (segRestantes <= 0) this.fin(false);
-
             const q = this.entidades.quijote;
-            this.actualizarSancho();
+            this.actualizarSancho(q);
 
-            // Items
-            for(let i = this.entidades.items.length - 1; i >= 0; i--) {
-                let it = this.entidades.items[i];
-                if (it.y < 510) it.y += it.vy;
-                it.vida--;
-                if (it.vida > 60 || this.frame % 10 < 5) {
-                    ctx.font = "30px Arial"; ctx.fillText(it.icono, it.x, it.y);
-                }
-                if(Math.abs(it.x - q.x) < 40 && Math.abs(it.y - q.y) < 40) {
-                    if(it.t === 'corazon') q.vidas = Math.min(3, q.vidas + 1);
-                    if(it.t === 'lanza') this.potenciado = 400; 
-                    this.entidades.items.splice(i, 1);
-                } else if (it.vida <= 0) this.entidades.items.splice(i, 1);
+            for (let i = this.entidades.trizas.length - 1; i >= 0; i--) {
+                let t = this.entidades.trizas[i];
+                t.x += t.vx; t.y += t.vy; t.vida -= 0.02;
+                if (t.vida <= 0) { this.entidades.trizas.splice(i, 1); continue; }
+                ctx.globalAlpha = t.vida;
+                ctx.fillStyle = t.color;
+                ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2); ctx.fill();
             }
+            ctx.globalAlpha = 1.0;
 
-            // Proyectiles (Mejora: Ráfagas incrementan 20% al acercarse)
-            for(let i = this.entidades.proyectiles.length - 1; i >= 0; i--) {
-                let p = this.entidades.proyectiles[i];
-                p.y += 3.2;
-                
-                // Incremento progresivo de tamaño basado en Y (hasta 20% extra al llegar abajo)
-                let factorEscala = 1 + (p.y / 600) * 0.2;
-                let tamFinal = p.s * factorEscala;
-
-                if(Sprites[p.img]?.listo) {
-                    ctx.drawImage(Sprites[p.img], p.x - tamFinal/2, p.y - tamFinal/2, tamFinal, tamFinal);
-                }
-
-                if(q && Math.abs(p.x - q.x) < tamFinal/1.8 && Math.abs(p.y - q.y) < 40) {
-                    q.vidas -= p.boss ? 3 : 1; 
-                    this.entidades.proyectiles.splice(i, 1);
-                    if(q.vidas <= 0) this.fin(false);
-                } else if(p.y > 600) this.entidades.proyectiles.splice(i, 1);
-            }
-
-            // Enemigos
             let cambioSentido = false;
-            let yMasAlta = 600; 
+            let yMasAlta = 600;
 
             this.entidades.enemigos.forEach((e) => {
-                e.x += 0.55 * this.hDir;
-                let ola = Math.sin((this.frame * 0.1) + e.offsetOla) * 2;
-                e.y += 0.08 + Math.abs(ola * 0.05);
+                e.x += 0.75 * this.hDir;
+                e.y += 0.11;
                 if(e.y < yMasAlta) yMasAlta = e.y;
                 if(e.x > 760 || e.x < 40) cambioSentido = true;
                 
-                if(e.frameAtaque === 0 && Math.random() < 0.002) e.frameAtaque = 45;
+                if(e.frameAtaque === 0 && Math.random() < 0.003) e.frameAtaque = 60;
                 if(e.frameAtaque === 1) {
                     this.entidades.proyectiles.push({ 
-                        x: e.x, y: e.y, s: 30, img: this.nivel === 1 ? 'imgF' : 'imgR' 
+                        x: e.x, y: e.y, s: (this.nivel === 1 ? 20 : 45), sMax: (this.nivel === 1 ? 60 : 45), 
+                        img: this.nivel === 1 ? 'imgF' : 'imgR', frameVida: 0 
                     });
                 }
-                
-                // MEJORA: Halo más perceptible (Muzzle Flash)
-                if(e.frameAtaque > 0 && e.frameAtaque < 12) {
-                    ctx.save();
-                    let opacidad = e.frameAtaque / 12;
-                    let radioHalo = 55 - e.frameAtaque * 2; // El halo se expande
-                    let grad = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, radioHalo);
-                    grad.addColorStop(0, `rgba(255, 255, 200, ${opacidad})`);
-                    grad.addColorStop(0.4, `rgba(255, 150, 0, ${opacidad * 0.6})`);
-                    grad.addColorStop(1, "rgba(255, 50, 0, 0)");
-                    ctx.fillStyle = grad;
-                    ctx.globalCompositeOperation = 'lighter'; // Efecto brillo
-                    ctx.beginPath(); ctx.arc(e.x, e.y, radioHalo, 0, Math.PI*2); ctx.fill();
-                    ctx.restore();
-                }
-                if(e.frameAtaque > 0) e.frameAtaque--;
 
                 if(this.nivel === 1) {
-                    ctx.save(); e.rot = (e.rot || 0) + 0.03;
+                    ctx.save();
+                    if(e.frameAtaque > 0) { ctx.shadowBlur = 15; ctx.shadowColor = "white"; }
+                    e.rot += 0.04;
                     if(Sprites.imgM.listo) ctx.drawImage(Sprites.imgM, e.x-40, e.y-40, 80, 80);
                     ctx.translate(e.x, e.y-10); ctx.rotate(e.rot);
                     if(Sprites.imgA.listo) ctx.drawImage(Sprites.imgA, -45, -45, 90, 90);
                     ctx.restore();
-                } else { 
-                    this.dibujarGigante(e, e.x-40, e.y-50, 80, 100); 
+                } else {
+                    this.dibujarGigante(e, e.x-40, e.y-50, 80, 100);
                 }
-                if(e.y > 510) this.fin(false); 
+                if(e.frameAtaque > 0) e.frameAtaque--;
+                if(e.y > 510) this.fin(false);
             });
             if(cambioSentido) this.hDir *= -1;
 
             if(this.entidades.boss) {
-                let b = this.entidades.boss; b.x += 1.8 * b.dir;
+                let b = this.entidades.boss;
+                b.x += 2.3 * b.dir; 
                 if(b.x > 650 || b.x < 50) b.dir *= -1;
                 this.dibujarGigante(b, b.x, b.y, b.w, b.h);
-                if(b.hp > 0 && this.entidades.enemigos.length < 14 && yMasAlta > 290) {
+                
+                if(this.nivel === 3 && this.entidades.enemigos.length > 0 && this.entidades.enemigos.length < 14 && yMasAlta > 290) {
                     this.generarFilaEnemigos(yMasAlta - 110, 1);
                 }
-                if(this.frame % 120 === 0) {
-                    this.entidades.proyectiles.push({ x: b.x+b.w/2, y: b.y+b.h, s: 70, img: 'imgR', boss: true });
+                
+                if(this.frame % 90 === 0) {
+                    this.entidades.proyectiles.push({ x: b.x+b.w/2, y: b.y+b.h, s: 75, sMax: 75, img: 'imgR', boss: true, frameVida: 0 });
                 }
-                const barraBoss = document.getElementById('boss-vida-roja');
-                if(barraBoss) barraBoss.style.width = (b.hp / b.hpMax * 100) + "%";
+
+                ctx.fillStyle = "rgba(0,0,0,0.7)";
+                this.roundRect(150, 570, 500, 15, 8);
+                ctx.fill();
+                ctx.fillStyle = "#ff0000";
+                this.roundRect(150, 570, (b.hp / b.hpMax) * 500, 15, 8);
+                ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                this.roundRect(150, 570, 500, 15, 8);
+                ctx.stroke();
+                ctx.lineWidth = 1;
             }
 
-            // Quijote y Lanzas
-            if((teclas['ArrowLeft'] || teclas['a']) && q.x > 50) { q.x -= 7; q.dir = -1; }
-            if((teclas['ArrowRight'] || teclas['d']) && q.x < 750) { q.x += 7; q.dir = 1; }
-            if(teclas[' '] && Date.now() - this.ultimoDisparo > 150) {
+            if((teclas['ArrowLeft'] || teclas['a']) && q.x > 50) { q.x -= 8.5; q.dir = -1; }
+            if((teclas['ArrowRight'] || teclas['d']) && q.x < 750) { q.x += 8.5; q.dir = 1; }
+            if(teclas[' '] && Date.now() - this.ultimoDisparo > 140) {
                 this.entidades.lanzas.push({ x: q.x, y: q.y - 20 });
                 this.ultimoDisparo = Date.now();
+                AudioEngine.reproducir('lanza');
             }
 
-            this.entidades.lanzas.forEach((l, i) => {
-                l.y -= 22;
-                if (this.potenciado > 0) this.potenciado--;
-                if(this.potenciado > 0) {
-                    ctx.fillStyle = this.nivel === 3 ? "#FF00FF" : "#00FFFF";
-                    ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
-                } else { ctx.fillStyle = "#ffff00"; ctx.shadowBlur = 0; }
-                ctx.fillRect(l.x-2, l.y, 4, 25);
-                ctx.shadowBlur = 0;
-
+            for(let i = this.entidades.lanzas.length - 1; i >= 0; i--) {
+                let l = this.entidades.lanzas[i];
+                l.y -= 28;
+                ctx.fillStyle = this.potenciado > 0 ? "#00FFFF" : "#ffff00";
+                ctx.fillRect(l.x-2, l.y, 4, 30);
+                
                 let b = this.entidades.boss;
                 if(b && l.x > b.x && l.x < b.x+b.w && l.y < b.y+b.h) {
-                    b.hp--; this.entidades.lanzas.splice(i, 1);
-                    if(b.hp <= 0) { 
-                        this.explotarEnTrizas(b.x + b.w/2, b.y + b.h/2, "#660000");
-                        this.entidades.boss = null; document.getElementById('boss-ui').style.display = "none"; 
-                    }
+                    b.hp -= (this.potenciado > 0 ? 2 : 1);
+                    this.entidades.lanzas.splice(i, 1);
+                    AudioEngine.reproducir('impacto');
+                    if(b.hp <= 0) this.entidades.boss = null; 
+                    continue;
                 }
 
                 this.entidades.enemigos.forEach((e, j) => {
                     if(Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
-                        e.hp -= (this.potenciado > 0 ? 2 : 1); 
+                        e.hp -= (this.potenciado > 0 ? 2 : 1);
                         this.entidades.lanzas.splice(i, 1);
-                        if(e.hp <= 0) { 
+                        AudioEngine.reproducir('impacto');
+                        if(e.hp <= 0) {
                             this.bajas++;
+                            if(this.nivel > 1 && this.metasBajas.includes(this.bajas)) {
+                                this.crearItem(e.x, e.y, 'lanza', "⚡");
+                                this.metasBajas = this.metasBajas.filter(m => m !== this.bajas);
+                            }
                             this.explotarEnTrizas(e.x, e.y, this.nivel === 1 ? "#8b4513" : "#444");
-                            this.entidades.enemigos.splice(j, 1); 
-                            if(this.nivel > 1 && [3, 11, 17].includes(this.bajas)) this.crearItem(e.x, e.y, 'lanza', "⚡");
+                            this.entidades.enemigos.splice(j, 1);
                         }
                     }
                 });
                 if(l.y < 0) this.entidades.lanzas.splice(i, 1);
-            });
-
-            if(Sprites.imgQ.listo) {
-                ctx.save(); ctx.translate(q.x, q.y - 45);
-                if(q.dir === -1) ctx.scale(-1, 1);
-                let isWalking = (teclas['ArrowLeft'] || teclas['ArrowRight'] || teclas['a'] || teclas['d']);
-                ctx.drawImage(Sprites.imgQ, isWalking ? 0 : 480, 0, 480, 440, -45, 0, 90, 85);
-                ctx.restore();
             }
 
+            for(let i = this.entidades.items.length - 1; i >= 0; i--) {
+                let it = this.entidades.items[i];
+                if(it.y < it.destinoY) it.y += 5; 
+                it.vida--;
+                ctx.font = "30px Arial"; ctx.fillText(it.icono, it.x, it.y);
+                if(Math.abs(it.x - q.x) < 40 && Math.abs(it.y - q.y) < 40) {
+                    AudioEngine.reproducir('item');
+                    if(it.t === 'corazon') q.vidas = Math.min(3, q.vidas + 1);
+                    if(it.t === 'lanza') this.potenciado = 300; 
+                    this.entidades.items.splice(i, 1);
+                } else if (it.vida <= 0) this.entidades.items.splice(i, 1);
+            }
+
+            this.dibujarProyectiles(q);
+            this.dibujarQuijote(q);
+
+            if(this.potenciado > 0) this.potenciado--;
             document.getElementById('hud-corazones').innerText = "❤️".repeat(Math.max(0, q.vidas));
             if(this.entidades.enemigos.length === 0 && !this.entidades.boss) this.fin(true);
             requestAnimationFrame(() => this.loop());
@@ -301,40 +267,61 @@ document.addEventListener('DOMContentLoaded', () => {
         dibujarGigante(e, x, y, w, h) {
             if(!Sprites.imgG.listo) return;
             ctx.save();
-            if(this.nivel === 2) {
-                if(e.hp === 2) ctx.filter = 'grayscale(1) brightness(1.2)';
-                if(e.hp === 1) ctx.filter = 'grayscale(1) brightness(0.5)';
-            } else if(this.nivel === 3) {
-                if(e.hp === 3) ctx.filter = 'grayscale(1) brightness(1)';
-                if(e.hp === 2) ctx.filter = 'grayscale(1) brightness(0.4)';
-                if(e.hp === 1) ctx.filter = 'sepia(1) saturate(10) hue-rotate(-50deg)';
-            }
-            let cycle = Math.floor(this.frame / 25) % 2; 
+            if(this.nivel === 2 && e.hp === 1) ctx.filter = 'grayscale(1) brightness(0.5)';
+            if(this.nivel === 3 && e.hp === 1) ctx.filter = 'sepia(1) saturate(10) hue-rotate(-50deg)';
+            let cycle = Math.floor(this.frame / 20) % 2;
             let frameIndex = (e.frameAtaque > 0) ? (cycle ? 1 : 0) : (cycle ? 3 : 2);
             ctx.drawImage(Sprites.imgG, frameIndex * 1024, 0, 1024, 1300, x, y, w, h);
             ctx.restore();
         },
 
+        dibujarQuijote(q) {
+            if(!Sprites.imgQ.listo) return;
+            ctx.save(); ctx.translate(q.x, q.y - 45);
+            if(q.dir === -1) ctx.scale(-1, 1);
+            let walk = (teclas['ArrowLeft'] || teclas['ArrowRight'] || teclas['a'] || teclas['d']);
+            ctx.drawImage(Sprites.imgQ, walk ? 0 : 480, 0, 480, 440, -45, 0, 90, 85);
+            ctx.restore();
+        },
+
+        dibujarProyectiles(q) {
+            for(let i = this.entidades.proyectiles.length - 1; i >= 0; i--) {
+                let p = this.entidades.proyectiles[i];
+                p.y += 4.5; 
+                p.frameVida++;
+                if(this.nivel === 1) p.s = Math.min(p.sMax, 20 + p.frameVida * 0.5);
+                let tam = p.s;
+                if(Sprites[p.img]?.listo) ctx.drawImage(Sprites[p.img], p.x - tam/2, p.y - tam/2, tam, tam);
+                if(Math.abs(p.x - q.x) < tam/2 && Math.abs(p.y - q.y) < 40) {
+                    q.vidas -= p.boss ? 3 : 1;
+                    this.entidades.proyectiles.splice(i, 1);
+                    AudioEngine.reproducir('impacto');
+                    if(q.vidas <= 0) this.fin(false);
+                } else if(p.y > 600) this.entidades.proyectiles.splice(i, 1);
+            }
+        },
+
         fin(v) { 
-            this.activo = false; canvas.style.display = "none";
+            this.activo = false;
+            AudioEngine.reproducir(v ? 'victoria' : 'muerte');
             document.getElementById('hud-superior').style.display = "none";
             const menuFinal = document.getElementById('resumenGesta');
-            menuFinal.style.setProperty('display', 'flex', 'important');
-            const titulo = menuFinal.querySelector('.gesta-titulo');
-            if(titulo) titulo.innerText = v ? "¡VICTORIA!" : "¡GAME OVER!"; 
+            menuFinal.classList.remove('hidden');
+            menuFinal.querySelector('.gesta-titulo').innerText = v ? "¡VICTORIA!" : "¡GAME OVER!";
         }
     };
 
-    document.querySelectorAll('.btn-nivel[data-nivel]').forEach(b => {
+    document.querySelectorAll('.btn-nivel').forEach(b => {
         b.onclick = () => Juego.iniciarNivel(parseInt(b.dataset.nivel));
     });
     
-    const btnComenzar = document.getElementById('btn-comenzar');
-    if(btnComenzar) {
-        btnComenzar.onclick = () => {
-            document.getElementById('registro-caballero').style.setProperty('display', 'none', 'important');
-            document.getElementById('resumenGesta').style.setProperty('display', 'flex', 'important');
-        };
-    }
-    Juego.loop();
+    document.getElementById('btn-comenzar').onclick = () => {
+        // ACTIVACIÓN DE AUDIO POR INTERACCIÓN HUMANA
+        AudioEngine.init(); 
+        AudioEngine.reproducir('click');
+        
+        document.getElementById('registro-caballero').classList.add('hidden');
+        document.getElementById('resumenGesta').classList.remove('hidden');
+    };
+});
 });
