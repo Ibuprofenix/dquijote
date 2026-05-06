@@ -8,16 +8,6 @@
     <link rel="stylesheet" href="maestro.css">
     <link rel="stylesheet" href="pantallas.css">
     <style>
-        /* Ajustes de transparencia y estética para el HUD */
-        #hud-inferior {
-            background: rgba(0, 0, 0, 0.4) !important;
-            backdrop-filter: blur(4px);
-            transition: opacity 0.3s;
-        }
-        #hud-inferior:hover { opacity: 0.2; }
-        #hud-puntos, #hud-timer { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9); }
-        
-        /* Barra de Boss Simplificada */
         #boss-ui {
             position: fixed;
             top: 2.5rem;
@@ -35,22 +25,22 @@
             overflow: hidden;
             box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
+        #hud-puntos, #hud-timer { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9); }
     </style>
 </head>
 <body class="bg-stone-900 flex items-center justify-center min-h-screen overflow-hidden">
 
     <div id="game-container" class="nivel-1 shadow-2xl overflow-hidden relative">
-        <!-- Ambiente -->
         <div class="astro"></div>
         <div class="contenedor-nubes">
             <div class="nube-css" style="width:120px; height:40px; top:30px; animation-duration:25s;"></div>
             <div class="nube-css" style="width:180px; height:60px; top:90px; animation-duration:40s; animation-delay:-10s;"></div>
         </div>
         <div class="colina-principal"></div>
-        <div class="pueblo-asset"></div> <!-- AÑADE ESTO -->
+        <div class="pueblo-asset"></div>
 
         <!-- HUD SUPERIOR -->
-        <div id="hud-superior" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-40 bg-gradient-to-b from-black/60 to-transparent" style="display: none;">
+        <div id="hud-superior" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-40" style="display: none;">
             <div class="flex flex-col">
                 <span id="hud-nombre" class="text-amber-400 font-bold text-xl uppercase tracking-wider drop-shadow-md"></span>
                 <span id="hud-nivel" class="text-white text-xs italic opacity-90 tracking-widest uppercase"></span>
@@ -58,7 +48,7 @@
             <div id="hud-corazones" class="text-3xl filter drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">❤️❤️❤️</div>
         </div>
 
-        <!-- BARRA BOSS (UNA SOLA) -->
+        <!-- BARRA BOSS -->
         <div id="boss-ui" class="hidden">
             <div class="barra-boss-contenedor">
                 <div id="boss-vida-roja" class="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-300" style="width: 100%"></div>
@@ -68,10 +58,9 @@
             </div>
         </div>
 
-        <!-- LIENZO -->
         <canvas id="gameCanvas" width="800" height="600" class="relative z-30" style="display: none;"></canvas>
 
-        <!-- HUD INFERIOR (TRANSPARENTE) -->
+        <!-- HUD INFERIOR -->
         <div id="hud-inferior" class="absolute bottom-0 left-0 w-full px-8 py-4 flex justify-between items-center z-50" style="display: none;">
             <div class="min-w-[140px]">
                 <span id="hud-timer" class="text-white font-mono text-2xl font-bold">⌛ 00:00</span>
@@ -81,7 +70,7 @@
             </div>
         </div>
 
-        <!-- PANTALLAS (REGISTRO, SELECTOR, FINAL) -->
+        <!-- REGISTRO -->
         <div id="registro-caballero" class="pantalla-overlay z-50">
             <h1 class="gesta-titulo">¡A LA GESTA!</h1>
             <div class="tarjeta-cartoon shadow-2xl">
@@ -91,9 +80,10 @@
             </div>
         </div>
 
+        <!-- SELECTOR -->
         <div id="resumenGesta" class="pantalla-overlay hidden z-50">
             <h2 class="gesta-titulo">ELIGE TU DESTINO</h2>
-            <div class="flex gap-6">
+            <div class="flex gap-6 mb-8">
                 <button class="btn-nivel card-nivel flex flex-col items-center group" data-nivel="1">
                     <span class="text-5xl mb-2 group-hover:scale-125 transition-transform">⚔️</span>
                     <strong class="text-amber-950">MOLINOS</strong>
@@ -107,35 +97,20 @@
                     <strong class="text-amber-950">EL COLOSO</strong>
                 </button>
             </div>
+            <button onclick="Interfaz.mostrarRanking()" class="btn-quijote text-lg px-8">VER TABLA DE HONOR</button>
         </div>
 
-        <div id="pantalla-final" class="pantalla-overlay hidden z-[60]">
-            <div class="tarjeta-cartoon text-center scale-110 shadow-2xl border-8 border-amber-900 max-w-md">
-                <h2 id="final-titulo" class="text-4xl font-black text-amber-900 mb-2 drop-shadow-sm uppercase">¡GESTA FINALIZADA!</h2>
-                <div class="bg-amber-950/5 p-4 rounded-xl border-2 border-dashed border-amber-900/30 mb-4 text-left font-mono text-sm">
-                    <div id="resumen-detalles" class="space-y-1 text-amber-900">
-                        <p class="flex justify-between"><span>⚔️ Hazañas:</span> <span id="resumen-enemigos" class="font-bold">0 pts</span></p>
-                        <p class="flex justify-between"><span>❤️ Salud:</span> <span id="resumen-vidas" class="font-bold">0 pts</span></p>
-                        <p class="flex justify-between"><span>⌛ Tiempo:</span> <span id="resumen-tiempo" class="font-bold">0 pts</span></p>
-                    </div>
-                    <hr class="border-amber-900/20 my-2">
-                    <p class="flex justify-between text-amber-950 font-black text-lg uppercase">
-                        <span>Total Gesta:</span> <span id="final-puntos">000000</span>
-                    </p>
-                </div>
-                <div class="flex flex-col gap-2">
-                    <button id="btn-siguiente-nivel" class="btn-cartoon w-full text-xl py-3 hidden uppercase">Siguiente Nivel</button>
-                    <button id="btn-volver-selector" class="btn-cartoon w-full text-xl py-3 uppercase">Volver</button>
-                </div>
-            </div>
+        <!-- RANKING -->
+<div id="pantalla-ranking" class="pantalla-overlay hidden z-[70]">
+    <!-- He cambiado w-96 por w-[32rem] para darle más aire -->
+    <div class="tarjeta-cartoon w-[32rem] max-w-[95vw]">
+        <h2 class="text-4xl font-black text-amber-900 mb-6 uppercase tracking-tight text-center">Tablas de Honor</h2>
+        
+        <!-- Eliminado el max-h-60 y el overflow-y-auto -->
+        <div id="lista-ranking" class="text-left font-mono space-y-3 mb-8 p-4 bg-amber-900/5 rounded-2xl border-2 border-amber-900/10">
+            <!-- Datos de Google Sheets -->
         </div>
 
-        <div class="suelo-base z-20"></div>
+        <button id="btn-ranking-volver" class="btn-cartoon w-full py-4 text-2xl uppercase">Volver al Menú</button>
     </div>
-
-    <script src="gestionDatos.js"></script> 
-    <script src="audio.js"></script>
-    <script src="interfaz.js"></script>
-    <script src="juego.js"></script>
-</body>
-</html>
+</div>
