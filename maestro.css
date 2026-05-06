@@ -59,86 +59,76 @@ body {
     transition: all 2.5s cubic-bezier(0.45, 0.05, 0.55, 0.95);
 }
 
-/* --- ESCENARIO --- */
+/* --- ESCENARIO (AJUSTE DE CONTRASTE) --- */
 .colina-principal {
     position: absolute;
     bottom: 70px; left: -20%;
     width: 160%; height: 180px;
-    background: #8b7355;
+    background: #a68a64; /* Marrón claro arcilloso */
     clip-path: ellipse(100% 100% at 25% 100%); 
     z-index: 3;
+    border-top: 2px solid rgba(255,255,255,0.1);
 }
 
 #game-container::before {
     content: ''; position: absolute; 
     bottom: 80px; right: -10%; 
     width: 130%; height: 190px; 
-    background: #5d4d3a; 
+    background: #8b7355; /* Marrón medio para profundidad */
     clip-path: ellipse(100% 100% at 20% 100%); 
     z-index: 2; 
 }
 
 .pueblo-asset {
     position: absolute; 
-    top: 325px; left: 50%; 
+    top: 325px; 
+    left: 50%; 
     transform: translateX(calc(-50% + 60px)); 
-    width: 140px; height: 90px;
+    width: 140px; 
+    height: 90px;
     background: url('fondo_criptana.png') no-repeat bottom center;
     background-size: contain;
-    z-index: 4; 
+    z-index: 5;
     opacity: 0.85;
+    pointer-events: none;
 }
 
 .suelo-base {
     position: absolute; bottom: 0; left: 0; width: 100%; height: 75px; 
-    background: linear-gradient(to bottom, #3d1e07, #5d2e0a);
-    border-top: 4px solid #2d1605;
+    /* Degradado más claro para resaltar pies de DQ */
+    background: linear-gradient(to bottom, #7d5a3e, #5d4029);
+    border-top: 5px solid #4a3221;
     z-index: 10; 
 }
 
-/* --- HUD SUPERIOR (TIMER Y VIDAS) --- */
-.hud-superior {
-    position: absolute; 
+/* --- HUD SUPERIOR --- */
+#hud-superior {
+    position: absolute !important;
     top: 0; left: 0;
-    width: 100%; height: 70px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+    width: 100%; height: 80px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%) !important;
     color: #fff; 
     display: flex; 
-    align-items: center; 
+    align-items: flex-start; 
     justify-content: space-between;
-    padding: 0 30px; 
+    padding: 15px 30px; 
     z-index: 100;
-    font-size: 1.8rem; 
-    text-shadow: 2px 2px 0 #000;
     pointer-events: none;
 }
 
-#hud-corazones {
-    color: #ef4444;
-    filter: drop-shadow(2px 2px 0 #000);
-    letter-spacing: 3px;
-}
-
-/* --- BARRA DE VIDA BOSS --- */
-#boss-ui {
-    position: absolute;
-    bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 450px;
-    height: 20px;
-    background: #000;
-    border: 3px solid #fff;
-    z-index: 110;
-    border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0,0,0,0.5);
-}
-
-#boss-vida-roja {
-    height: 100%;
-    width: 100%;
-    background: linear-gradient(90deg, #ff0000, #8b0000);
-    transition: width 0.3s ease-out;
+/* --- HUD INFERIOR --- */
+#hud-inferior {
+    position: absolute !important;
+    bottom: 0; left: 0;
+    width: 100%; height: 90px;
+    /* Degradado suave para no ensuciar el suelo claro */
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%) !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    z-index: 100;
+    pointer-events: none;
 }
 
 /* --- CANVAS --- */
@@ -173,8 +163,6 @@ canvas {
     border-radius: 1.5rem;
     box-shadow: 12px 12px 0 #000;
     text-align: center;
-    max-width: 500px;
-    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .gesta-titulo {
@@ -182,44 +170,6 @@ canvas {
     color: #fff;
     text-shadow: 5px 5px 0 #000, -2px -2px 0 #000;
     margin-bottom: 1rem;
-    line-height: 1;
-}
-
-#puntuacion-final {
-    font-size: 2.5rem;
-    display: block;
-    margin: 20px 0;
-    color: #000;
-    background: #fbbf24;
-    border: 3px solid #000;
-    transform: rotate(-2deg);
-    padding: 10px 20px;
-    box-shadow: 4px 4px 0 #000;
-}
-
-/* --- BOTONES --- */
-.btn-quijote {
-    background: #ef4444;
-    color: white;
-    padding: 15px 30px;
-    font-family: 'Bangers', cursive;
-    font-size: 1.5rem;
-    border: 3px solid #000;
-    border-radius: 8px;
-    cursor: pointer;
-    box-shadow: 4px 4px 0 #000;
-    transition: all 0.1s;
-    margin: 10px;
-}
-
-.btn-quijote:hover {
-    background: #f87171;
-    transform: scale(1.05) rotate(1deg);
-}
-
-.btn-quijote:active {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0 #000;
 }
 
 /* --- ANIMACIONES --- */
@@ -235,7 +185,6 @@ canvas {
 
 .hidden { display: none !important; }
 
-/* Nubes dinámicas */
 .nube-css {
     position: absolute; 
     background: rgba(255, 255, 255, 0.8);
