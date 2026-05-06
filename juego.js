@@ -37,12 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
         iniciarNivel(n) {
             if(window.AudioEngine) AudioEngine.reproducir('click');
             
-            // Reinicio de estado de nivel
             this.nivel = n;
             this.activo = true; 
             this.frame = 0; 
             this.bajas = 0;
-            this.puntos = 0; // Puntos de este nivel (Interfaz gestiona el acumulado)
+            this.puntos = 0;
             this.potenciado = 0;
             this.hDir = 1;
             this.sanchoUsado = false;
@@ -53,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
             this.velEnemigoX = 0.6 + (n * 0.25); 
             this.velEnemigoY = 0.10 + (n * 0.04);
             
+            // Reset de Sancho al iniciar nivel
+            this.sancho = { activo: false, x: -150, y: 530, estado: 'espera', timer: 0 };
+
             this.entidades = {
                 quijote: { x: 400, y: 530, vidas: 3, dir: 1, w: 90, h: 85, aturdido: 0 },
                 enemigos: [], proyectiles: [], lanzas: [], items: [], trizas: [],
@@ -101,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const q = this.entidades.quijote;
             const s = this.sancho;
 
-            // --- CRONÓMETRO ---
             if (Date.now() - this.ultimoSegundo > 1000) {
                 this.tiempoRestante--;
                 this.ultimoSegundo = Date.now();
@@ -126,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(e.frameAtaque === 1) {
                     this.entidades.proyectiles.push({ 
                         x: e.x, y: e.y, vy: 3.5, ay: 0.15, s: (this.nivel === 1 ? 20 : 45), 
-                        sMax: (this.nivel === 1 ? 60 : 45), img: this.nivel === 1 ? 'imgF' : 'imgR', frameVida: 0 
+                        sMax: (this.nivel === 1 ? 60 : 45), img: this.nivel === 1 ? 'imgF' : 'imgR', frameVida: 0, boss: false 
                     });
                 }
                 
@@ -189,20 +190,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else { q.aturdido--; }
 
-            // --- LÓGICA SANCHO PANZA ---
+            // --- LÓGICA SANCHO PANZA (CORREGIDA) ---
+            // Solo en nivel 3, solo una vez por nivel, y solo cuando queda 1 vida o menos
             if (this.nivel === 3 && !this.sanchoUsado && q.vidas <= 1) {
-                s.activo = true; s.estado = 'entrando'; this.sanchoUsado = true;
+                s.activo = true; 
+                s.estado = 'entrando'; 
+                this.sanchoUsado = true;
                 if(window.AudioEngine) AudioEngine.reproducir('sancho');
             }
+            
             if (s.activo) {
-                if (s.estado === 'entrando') { s.x += 4; if (s.x >= 120) { s.estado = 'ayudando'; s.timer = 80; } }
+                if (s.estado === 'entrando') { 
+                    s.x += 4; 
+                    if (s.x >= 120) { s.estado = 'ayudando'; s.timer = 80; } 
+                }
                 else if (s.estado === 'ayudando') {
                     s.timer--;
-                    if (s.timer === 40) this.entidades.items.push({ x: s.x+40, y: s.y, destinoY: 530, t: 'corazon', icono: "❤️", vida: 240 });
+                    if (s.timer === 40) {
+                        this.entidades.items.push({ x: s.x+40, y: s.y, destinoY: 530, t: 'corazon', icono: "❤️", vida: 240 });
+                    }
                     if (s.timer <= 0) s.estado = 'saliendo';
                 }
-                else if (s.estado === 'saliendo') { s.x -= 4; if (s.x < -150) s.activo = false; }
-                if (Sprites.imgS.listo) ctx.drawImage(Sprites.imgS, 0, 0, 1024, 1024, s.x - 45, s.y - 85, 90, 90);
+                else if (s.estado === 'saliendo') { 
+                    s.x -= 4; 
+                    if (s.x < -150) s.activo = false; 
+                }
+                
+                if (Sprites.imgS.listo) {
+                    ctx.drawImage(Sprites.imgS, 0, 0, 1024, 1024, s.x - 45, s.y - 85, 90, 90);
+                }
             }
 
             // --- LÓGICA LANZAS ---
@@ -211,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.fillStyle = this.potenciado > 0 ? "#00FFFF" : "#ffff00";
                 ctx.fillRect(l.x-2, l.y, 4, 30);
                 
-                // Colisión con Boss
                 if(this.entidades.boss && l.x > this.entidades.boss.x && l.x < this.entidades.boss.x+this.entidades.boss.w && l.y < this.entidades.boss.y+this.entidades.boss.h) {
                     this.entidades.boss.hp -= (this.potenciado > 0 ? 2 : 1);
                     this.entidades.lanzas.splice(i, 1);
@@ -222,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if(window.Interfaz) Interfaz.actualizarVidaBoss(0, 1); 
                     }
                 }
-                // Colisión con Enemigos
                 this.entidades.enemigos.forEach((e, j) => {
                     if(Math.abs(l.x - e.x) < 45 && Math.abs(l.y - e.y) < 45) {
                         e.hp -= (this.potenciado > 0 ? 2 : 1);
@@ -301,23 +315,30 @@ document.addEventListener('DOMContentLoaded', () => {
             this.entidades.proyectiles.forEach((p, i) => {
                 if(p.img === 'imgR') { p.vy += p.ay; p.y += p.vy; }
                 else { p.y += 4.5 + (this.nivel * 0.5); }
+                
                 p.frameVida++;
                 if(this.nivel === 1) p.s = Math.min(p.sMax, 20 + p.frameVida * 0.5);
+                
                 let tam = p.s;
                 if(Sprites[p.img]?.listo) ctx.drawImage(Sprites[p.img], p.x - tam/2, p.y - tam/2, tam, tam);
+                
                 if(Math.abs(p.x - q.x) < tam/2.5 && Math.abs(p.y - q.y) < 35) {
                     if(p.img === 'imgF') { 
                         q.aturdido = 100 + (this.nivel * 20);
                         if(window.AudioEngine) AudioEngine.reproducir('aturdido');
                     } else if(p.img === 'imgR') { this.explotarEnTrizas(p.x, p.y, "#8a8a8a"); }
+                    
                     q.vidas -= p.boss ? 3 : 1;
                     this.entidades.proyectiles.splice(i, 1);
                     if(window.AudioEngine) AudioEngine.reproducir('impacto');
                     if(window.Interfaz) Interfaz.actualizarHUD(q.vidas);
                     if(q.vidas <= 0) this.fin(false);
                 } 
-                else if(p.y > 585) {
-                    if(p.img === 'imgR') this.explotarEnTrizas(p.x, p.y, "#8a8a8a");
+                else if(p.y > 540) {
+                    if(p.img === 'imgR' || p.boss) {
+                        this.explotarEnTrizas(p.x, p.y, "#8a8a8a");
+                        if(window.AudioEngine) AudioEngine.reproducir(p.boss ? 'impacto' : 'choque_suelo');
+                    }
                     this.entidades.proyectiles.splice(i, 1);
                 }
             });
@@ -336,12 +357,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fin(victoria) { 
             this.activo = false;
             if(window.AudioEngine) AudioEngine.reproducir(victoria ? 'victoria' : 'muerte');
-            // Interfaz gestionará los bonos y mostrará la pantalla final
             if(window.Interfaz) Interfaz.mostrarPantallaFinal(victoria, this.puntos);
         }
     };
 
-    // --- EVENTOS Y EXPOSICIÓN ---
     window.Juego = Juego;
 
     document.querySelectorAll('.btn-nivel').forEach(b => {
