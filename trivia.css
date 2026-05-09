@@ -1,0 +1,111 @@
+/* --- TRIVIA.CSS: ADAPTACIÓN TOTAL AL ESTILO GESTA --- */
+
+/* Sincronizado con .pantalla-overlay de pantallas.css */
+#overlay-trivia {
+    position: absolute;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    display: none; /* Controlado por JS */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-family: 'Bangers', cursive;
+}
+
+/* Basado en .tarjeta-cartoon: Fondo amarillo, borde 8px, sombra 15px */
+.trivia-box {
+    background: #fbbf24;
+    padding: 40px;
+    border-radius: 30px;
+    border: 8px solid #000;
+    text-align: center;
+    box-shadow: 15px 15px 0 rgba(0, 0, 0, 0.5);
+    width: 95%;
+    max-width: 650px;
+    position: relative;
+    /* Animación de entrada definida en maestro.css (popIn) */
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Estilo .gesta-titulo: Sombra roja y negra */
+#trivia-titulo {
+    font-size: 3.5rem;
+    color: #fff;
+    text-shadow: 6px 6px 0 #ef4444, 3px 3px 0 #000;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+#trivia-pregunta {
+    font-size: 2rem;
+    color: #000;
+    margin-bottom: 30px;
+    line-height: 1.2;
+    padding: 0 10px;
+}
+
+/* GRID 2x2: Dos columnas iguales para las 4 opciones */
+#trivia-opciones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+}
+
+/* Adaptación de .btn-cartoon: Fondo negro, texto blanco */
+.opcion-trivia {
+    background: #000;
+    color: #fff;
+    padding: 20px 10px;
+    font-family: 'Bangers', cursive;
+    font-size: 1.8rem;
+    cursor: pointer;
+    border-radius: 20px;
+    border: none;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.3);
+}
+
+.opcion-trivia:hover {
+    background: #ef4444; /* Rojo de acento al pasar el ratón */
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.4);
+}
+
+.opcion-trivia:active {
+    transform: translateY(2px);
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+}
+
+/* Feedback de error (Shake) */
+.trivia-error {
+    animation: shakeTrivia 0.4s ease-in-out;
+}
+
+@keyframes shakeTrivia {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-10px); }
+    80% { transform: translateX(10px); }
+}
+
+/* Pie de la tarjeta de trivia */
+.footer-trivia {
+    margin-top: 30px;
+    font-size: 1.2rem;
+    color: rgba(0, 0, 0, 0.4);
+    text-transform: uppercase;
+    border-top: 2px solid rgba(0, 0, 0, 0.1);
+    padding-top: 15px;
+    letter-spacing: 1px;
+}

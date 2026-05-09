@@ -1,0 +1,92 @@
+/* OVERLAYS GENERALES */
+.pantalla-overlay {
+    position: absolute; inset: 0; z-index: 200;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: 'Bangers', cursive;
+}
+
+/* TARJETA ESTILO CARTOON */
+.tarjeta-cartoon {
+    background: #fbbf24;
+    padding: 40px;
+    border-radius: 30px;
+    border: 8px solid #000;
+    text-align: center;
+    box-shadow: 15px 15px 0 rgba(0, 0, 0, 0.5);
+    max-width: 650px;
+}
+
+.gesta-titulo {
+    font-size: 5rem;
+    color: #fff;
+    text-shadow: 6px 6px 0 #ef4444, 3px 3px 0 #000;
+    margin-bottom: 25px;
+    text-transform: uppercase;
+}
+
+/* SELECTOR DE NIVELES */
+.contenedor-niveles { display: flex; gap: 20px; margin-top: 20px; }
+
+.card-nivel {
+    background: #fff; color: #000; border: 6px solid #000;
+    padding: 20px; min-width: 160px; cursor: pointer;
+    border-radius: 25px; transition: 0.3s;
+    display: flex; flex-direction: column; align-items: center;
+}
+
+.card-nivel:hover { transform: scale(1.1) rotate(-3deg); background: #ef4444; color: #fff; }
+.icono-nivel { font-size: 3.5rem; margin-bottom: 10px; }
+
+/* INPUTS Y BOTONES */
+#nombreJugador {
+    width: 90%; padding: 15px; font-family: 'Bangers'; font-size: 2.2rem;
+    border: 6px solid #000; border-radius: 15px; text-align: center;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+}
+
+.btn-cartoon {
+    background: #000; color: #fff; padding: 15px 50px; font-size: 2.5rem;
+    cursor: pointer; border-radius: 20px; border: none; font-family: 'Bangers';
+}
+
+.btn-cartoon:hover { background: #ef4444; transform: translateY(-5px); }
+
+/* BARRA DE VIDA BOSS (Nivel 3) - Posicionada abajo */
+#boss-ui {
+    position: absolute;
+    bottom: 20px; /* Separación del borde inferior */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px; /* Un poco más ancha para que sea épica */
+    z-index: 100;
+    text-align: center;
+    pointer-events: none; /* Para que no interfiera si haces click cerca */
+}
+
+#boss-ui label {
+    color: #fff; 
+    font-size: 1.5rem; 
+    text-shadow: 2px 2px 0 #000;
+    display: block; 
+    margin-bottom: 5px;
+    font-family: 'Bangers', cursive;
+    letter-spacing: 2px;
+}
+
+.barra-vida-bg {
+    width: 100%; 
+    height: 18px; 
+    background: rgba(0, 0, 0, 0.8);
+    border: 3px solid #fff; 
+    border-radius: 10px; 
+    overflow: hidden;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); /* Resplandor rojo */
+}
+
+#boss-vida-roja {
+    width: 100%; 
+    height: 100%;
+    background: linear-gradient(90deg, #b91c1c, #ef4444, #f87171);
+    transition: width 0.3s ease-out;
+}
