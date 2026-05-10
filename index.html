@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Don Quijote: La Gesta de los Gigantes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="maestro.css">
+    <link rel="stylesheet" href="trivia.css">
+    <link rel="stylesheet" href="pantallas.css">
+    <style>
+        #boss-ui {
+            position: fixed;
+            top: 2.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24rem;
+            z-index: 50;
+        }
+        .barra-boss-contenedor {
+            position: relative;
+            height: 1.5rem;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #92400e;
+            border-radius: 9999px;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+        #hud-puntos, #hud-timer { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9); }
+        
+        #trivia-container {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Estilos específicos para el crono circular */
+        #trivia-timer-circle {
+            transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
+        }
+        .timer-critico {
+            filter: drop-shadow(0 0 8px #ef4444);
+            animation: pulse-timer 0.5s infinite alternate;
+        }
+        @keyframes pulse-timer {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+    </style>
+</head>
+<body class="bg-stone-900 flex items-center justify-center min-h-screen overflow-hidden text-slate-900">
+
+    <div id="game-container" class="nivel-1 shadow-2xl overflow-hidden relative">
+        <div class="astro"></div>
+        <div class="contenedor-nubes">
+            <div class="nube-css" style="width:120px; height:40px; top:30px; animation-duration:25s;"></div>
+            <div class="nube-css" style="width:180px; height:60px; top:90px; animation-duration:40s; animation-delay:-10s;"></div>
+        </div>
+        <div class="colina-principal"></div>
+        <div class="pueblo-asset"></div>
+
+        <!-- HUD SUPERIOR -->
+        <div id="hud-superior" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-40" style="display: none;">
+            <div class="flex flex-col">
+                <span id="hud-nombre" class="text-amber-400 font-bold text-xl uppercase tracking-wider drop-shadow-md"></span>
+                <span id="hud-nivel" class="text-white text-xs italic opacity-90 tracking-widest uppercase"></span>
+            </div>
+            <div id="hud-corazones" class="text-3xl filter drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">❤️❤️❤️</div>
+        </div>
+
+        <!-- BARRA BOSS -->
+        <div id="boss-ui" class="hidden">
+            <div class="barra-boss-contenedor">
+                <div id="boss-vida-roja" class="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-300" style="width: 100%"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <span class="text-[10px] font-black text-white uppercase tracking-[0.3em] drop-shadow-md">Gigante Colosal</span>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600" class="relative z-30" style="display: none;"></canvas>
+
+        <!-- HUD INFERIOR -->
+        <div id="hud-inferior" class="absolute bottom-0 left-0 w-full px-8 py-4 flex justify-between items-center z-50" style="display: none;">
+            <div class="min-w-[140px]">
+                <span id="hud-timer" class="text-white font-mono text-2xl font-bold">⌛ 00:00</span>
+            </div>
+            <div class="min-w-[140px] text-right">
+                <span id="hud-puntos" class="text-yellow-400 font-mono text-2xl font-bold tracking-tighter">🏆 000000</span>
+            </div>
+        </div>
+
+        <!-- REGISTRO -->
+        <div id="registro-caballero" class="pantalla-overlay z-50">
+            <h1 class="gesta-titulo">¡A LA GESTA!</h1>
+            <div class="tarjeta-cartoon shadow-2xl">
+                <p class="mb-4 text-xl font-bold text-amber-950">¿Cómo os llaman, caballero?</p>
+                <input type="text" id="nombreJugador" placeholder="TU APODO..." maxlength="25" class="p-3 border-4 border-amber-900 rounded-xl w-full text-center mb-4 text-black font-sans uppercase font-black text-xl shadow-inner focus:outline-none focus:ring-4 focus:ring-amber-500">
+                <button id="btn-comenzar" class="btn-cartoon w-full text-2xl py-4 uppercase">¡INICIAR AVENTURA!</button>
+            </div>
+        </div>
+
+        <!-- SELECTOR DE NIVELES -->
+        <div id="resumenGesta" class="pantalla-overlay hidden z-50">
+            <h2 class="gesta-titulo">ELIGE TU DESTINO</h2>
+            <div class="flex gap-6 mb-8">
+                <button class="btn-nivel card-nivel flex flex-col items-center group" data-nivel="1">
+                    <span class="text-5xl mb-2 group-hover:scale-125 transition-transform">⚔️</span>
+                    <strong class="text-amber-950">MOLINOS</strong>
+                </button>
+                <button class="btn-nivel card-nivel flex flex-col items-center group" data-nivel="2">
+                    <span class="text-5xl mb-2 group-hover:scale-125 transition-transform">👹</span>
+                    <strong class="text-amber-950">GIGANTES</strong>
+                </button>
+                <button class="btn-nivel card-nivel flex flex-col items-center group" data-nivel="3">
+                    <span class="text-5xl mb-2 group-hover:scale-125 transition-transform">👑</span>
+                    <strong class="text-amber-950">EL COLOSO</strong>
+                </button>
+            </div>
+        </div>
+
+        <div id="pantalla-ranking" class="pantalla-overlay hidden z-[100]">
+    <div class="tarjeta-cartoon">
+        <h2 class="uppercase text-center">Tablas de Honor</h2>
+        
+        <!-- La lista crecerá y tendrá scroll si hay muchos datos -->
+        <div id="lista-ranking" class="space-y-3">
+            <!-- Datos dinámicos -->
+        </div>
+        
+        <!-- El botón ahora siempre tendrá su sitio abajo -->
+        <button id="btn-ranking-volver" class="btn-cartoon">Volver al Menú</button>
+    </div>
+</div>
+
+        <!-- FINAL -->
+        <div id="pantalla-final" class="pantalla-overlay hidden z-[60]">
+            <div class="tarjeta-cartoon text-center scale-110 shadow-2xl border-8 border-amber-900 max-w-md">
+                <h2 id="final-titulo" class="text-4xl font-black mb-2 uppercase">¡GESTA FINALIZADA!</h2>
+                <div class="bg-amber-950/5 p-4 rounded-xl border-2 border-dashed border-amber-900/30 mb-4 text-left font-mono text-sm">
+                    <div id="resumen-detalles" class="space-y-1 text-amber-900">
+                        <p class="flex justify-between"><span>⚔️ Hazañas:</span> <span id="resumen-enemigos" class="font-bold">0 pts</span></p>
+                        <p class="flex justify-between"><span>❤️ Salud:</span> <span id="resumen-vidas" class="font-bold">0 pts</span></p>
+                        <p class="flex justify-between"><span>⌛ Tiempo:</span> <span id="resumen-tiempo" class="font-bold">0 pts</span></p>
+                    </div>
+                    <hr class="border-amber-900/20 my-2">
+                    <p class="flex justify-between text-amber-950 font-black text-lg uppercase">
+                        <span>Total Gesta:</span> <span id="final-puntos">000000</span>
+                    </p>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button id="btn-ver-ranking-final" class="btn-cartoon w-full text-xl py-3 uppercase bg-amber-600 text-white shadow-[0_5px_0_#92400e]">Ver Tabla de Honor</button>
+                    <button id="btn-siguiente-nivel" class="btn-cartoon w-full text-xl py-3 hidden uppercase">Siguiente Nivel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mensaje de Victoria Final -->
+        <div id="mensaje-epico" class="pantalla-overlay hidden z-[80]">
+            <div class="tarjeta-cartoon animate-bounce-short">
+                <div class="text-6xl mb-4">🏆</div>
+                <h2 class="text-3xl font-black text-amber-900 uppercase mb-4">¡LA MANCHA LIBRE!</h2>
+                <p class="text-xl font-bold text-black leading-tight mb-6 uppercase">
+                    ¡Bravo, caballero <span id="nombre-victoria"></span>!<br>
+                    Habéis derrotado a los gigantes y vuestro nombre será eterno.
+                </p>
+                <button id="btn-continuar-victoria" class="btn-cartoon w-full py-4 uppercase">
+                    VER TABLA DE HONOR
+                </button>
+            </div>
+        </div>
+
+        <div id="trivia-container" class="pantalla-overlay hidden z-[90]">
+    <div class="tarjeta-cartoon max-w-md w-full relative">
+        
+        <!-- CRONÓMETRO CIRCULAR (Más pequeño: 50px) -->
+        <div id="trivia-timer-wrapper" class="absolute -top-3 -right-3 w-14 h-14 bg-white border-4 border-black rounded-full flex items-center justify-center shadow-[3px_3px_0_#000] z-20">
+            <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 56 56">
+                <circle cx="28" cy="28" r="23" stroke="rgba(0,0,0,0.1)" stroke-width="5" fill="none" />
+                <circle id="trivia-timer-circle" cx="28" cy="28" r="23" stroke="#ef4444" stroke-width="5" fill="none" stroke-dasharray="144.5" stroke-dashoffset="0" />
+            </svg>
+            <span id="trivia-timer-text" class="relative font-black text-lg text-black">10</span>
+        </div>
+
+        <div id="trivia-encabezado">
+            <h2 id="trivia-titulo" class="text-xl font-black text-amber-900 uppercase">SABIDURÍA</h2>
+            <div id="trivia-progreso" class="text-[9px] font-bold text-amber-700 uppercase">Pregunta 1 de 3</div>
+        </div>
+        
+        <div class="pregunta-wrapper bg-white/60 p-3 rounded-xl border-2 border-amber-900/10 flex items-center justify-center">
+            <p id="trivia-pregunta" class="font-bold text-amber-950 text-center italic">Cargando...</p>
+        </div>
+        
+        <div id="trivia-opciones" class="flex flex-col gap-2">
+            <!-- Botones dinámicos -->
+        </div>
+
+        <!-- Feedback con espacio reservado -->
+        <div id="trivia-feedback" class="hidden rounded-lg text-center font-black border-2"></div>
+    </div>
+</div>
+
+        <div class="suelo-base z-20"></div>
+    </div>
+
+    <script src="gestionDatos.js"></script>
+    <script src="audio.js"></script>
+    <script src="marcador.js"></script>
+    <script src="biblioteca.js"></script>
+    <script src="trivia.js"></script>
+    <script src="interfaz.js"></script>
+    <script src="juego.js"></script>
+</body>
+</html>
